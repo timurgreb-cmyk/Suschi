@@ -22,18 +22,9 @@ export default function EmployeeLayout({
     fetchProfile();
   }, []);
 
-  // Доступ только для Тимура и Рукием, либо если стоит галочка (если ты её добавлял)
-  const isTester = profile?.full_name?.toLowerCase().includes("тимур") || 
-                   profile?.full_name?.toLowerCase().includes("рукием") || 
-                   profile?.can_upload_production;
-
   const tabs = [
     { name: "Сканер", href: "/app/scan", icon: ScanLine },
   ];
-
-  if (isTester) {
-    tabs.push({ name: "Выработка", href: "/app/production", icon: Briefcase });
-  }
 
   tabs.push({ name: "Профиль", href: "/app/profile", icon: UserCircle });
 

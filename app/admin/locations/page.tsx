@@ -11,6 +11,9 @@ export default function LocationsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newBaseHours, setNewBaseHours] = useState(8);
+  const [newWorkStart, setNewWorkStart] = useState("11:00");
+  const [newWorkEnd, setNewWorkEnd] = useState("00:00");
+  const [newLateFine, setNewLateFine] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const fetchLocations = async () => {
@@ -29,10 +32,19 @@ export default function LocationsPage() {
     await fetch("/api/locations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim(), base_hours: newBaseHours })
+      body: JSON.stringify({ 
+        name: newName.trim(), 
+        base_hours: newBaseHours,
+        work_start_time: newWorkStart,
+        work_end_time: newWorkEnd,
+        late_fine_amount: newLateFine
+      })
     });
     setNewName("");
     setNewBaseHours(8);
+    setNewWorkStart("11:00");
+    setNewWorkEnd("00:00");
+    setNewLateFine(0);
     setShowAdd(false);
     setLoading(false);
     fetchLocations();
@@ -52,32 +64,71 @@ export default function LocationsPage() {
 
       {showAdd && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-          <h2 className="text-lg font-bold mb-3">Новая локация</h2>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Название (например: Главный вход)"
-              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
-            />
-            <input
-              type="number"
-              value={newBaseHours}
-              onChange={(e) => setNewBaseHours(parseFloat(e.target.value))}
-              placeholder="Часов в смене"
-              step="0.5"
-              min="1"
-              max="24"
-              className="w-32 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
-            />
-            <button
-              onClick={handleAdd}
-              disabled={loading || !newName.trim()}
-              className="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50"
-            >
-              {loading ? "Создание..." : "Создать"}
-            </button>
+          <h2 className="text-lg font-bold mb-4">Новая локация</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Название</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Например: Главный вход"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Часов в смене</label>
+              <input
+                type="number"
+                value={newBaseHours}
+                onChange={(e) => setNewBaseHours(parseFloat(e.target.value))}
+                placeholder="8"
+                step="0.5"
+                min="1"
+                max="24"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Время начала (план)</label>
+              <input
+                type="text"
+                value={newWorkStart}
+                onChange={(e) => setNewWorkStart(e.target.value)}
+                placeholder="11:00"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Время окончания (план)</label>
+              <input
+                type="text"
+                value={newWorkEnd}
+                onChange={(e) => setNewWorkEnd(e.target.value)}
+                placeholder="00:00"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Размер штрафа (₸)</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={newLateFine}
+                  onChange={(e) => setNewLateFine(parseInt(e.target.value) || 0)}
+                  placeholder="0"
+                  min="0"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+                />
+                <button
+                  onClick={handleAdd}
+                  disabled={loading || !newName.trim()}
+                  className="bg-primary hover:bg-primary/90 text-white px-5 py-2 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50 text-sm whitespace-nowrap"
+                >
+                  {loading ? "Создание..." : "Создать"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -89,6 +140,8 @@ export default function LocationsPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Часы смены</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Время (План)</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Штраф за опод.</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
               </tr>
@@ -101,6 +154,12 @@ export default function LocationsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {loc.base_hours || 8} ч.
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {loc.work_start_time || "11:00"} - {loc.work_end_time || "00:00"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                    {loc.late_fine_amount || 0} ₸
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -121,7 +180,7 @@ export default function LocationsPage() {
               ))}
               {locations.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     Локаций пока нет. Создайте первую!
                   </td>
                 </tr>

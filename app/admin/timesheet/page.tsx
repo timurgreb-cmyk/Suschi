@@ -31,15 +31,26 @@ export default async function TimesheetPage({
     .eq("role", "employee")
     .order("full_name");
 
-  // 2. Получаем локации (для базовых часов)
+  // 2. Получаем локации (для базовых часов, рабочего времени и штрафов за опоздание)
   const { data: locationsData } = await supabase
     .from("locations")
-    .select("id, base_hours");
+    .select("id, base_hours, work_start_time, work_end_time, late_fine_amount");
 
-  const locationMap: Record<string, number> = {};
+  const locationMap: Record<string, { base_hours: number; work_start_time: string; work_end_time: string; late_fine_amount: number }> = {};
   locationsData?.forEach(loc => {
-    locationMap[loc.id] = loc.base_hours || 8; // По умолчанию 8 часов
+    locationMap[loc.id] = {
+      base_hours: loc.base_hours || 8,
+      work_start_time: loc.work_start_time || "11:00",
+      work_end_time: loc.work_end_time || "00:00",
+      late_fine_amount: loc.late_fine_amount || 0
+    };
   });
+
+  // Вспомогательная функция для перевода времени HH:mm в минуты с начала дня
+  const timeToMinutes = (timeStr: string): number => {
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
 
   // 3. Получаем отметки за месяц
   const { data: records } = await supabase
@@ -62,8 +73,8 @@ export default async function TimesheetPage({
     let completedShifts = 0;
     let missingCheckouts = 0;
     let totalOvertimeHours = 0;
-
     let totalWorkedHours = 0;
+    let totalFines = 0;
 
     // Группируем по дням
     const days: Record<string, typeof empRecords> = {};
@@ -89,6 +100,27 @@ export default async function TimesheetPage({
       const formattedFirstIn = firstIn ? format(parseISO(firstIn), "HH:mm") : "—";
       const formattedLastOut = lastOut ? format(parseISO(lastOut), "HH:mm") : "—";
 
+      // Расчет опоздания и штрафа
+      let isLate = false;
+      let lateMinutes = 0;
+      let fineAmount = 0;
+
+      const locId = firstInRec?.location_id;
+      const locInfo = locId && locationMap[locId] ? locationMap[locId] : null;
+
+      if (firstIn && locInfo) {
+        const checkInTimeStr = format(parseISO(firstIn), "HH:mm");
+        const checkInMins = timeToMinutes(checkInTimeStr);
+        const planStartMins = timeToMinutes(locInfo.work_start_time || "11:00");
+        
+        if (checkInMins > planStartMins) {
+          isLate = true;
+          lateMinutes = checkInMins - planStartMins;
+          fineAmount = locInfo.late_fine_amount || 0;
+          totalFines += fineAmount;
+        }
+      }
+
       if (firstIn && lastOut) {
         completedShifts++;
         
@@ -99,12 +131,11 @@ export default async function TimesheetPage({
         totalWorkedHours += actualHours;
 
         // Получаем базу из локации прихода
-        const locId = firstInRec?.location_id;
-        const baseHours = locId && locationMap[locId] ? locationMap[locId] : 8;
+        const baseHours = locInfo ? locInfo.base_hours : 8;
         
         let calculatedOvertime = 0;
         if (emp.is_overtime_enabled !== false) {
-          // 1 час идет как обед, т.е. отнимаем (база + 1)
+          // 1 час идет как обед, т.е. отнимаем (baseHours + 1)
           const rawOvertime = actualHours - (baseHours + 1);
           if (rawOvertime > 0) {
             // Переработки считаются только за целый час
@@ -141,23 +172,61 @@ export default async function TimesheetPage({
           overtime,
           requiresApproval,
           approvalStatus,
+          isLate,
+          lateMinutes,
+          fineAmount,
           status: 'complete' 
         });
       } else if (firstIn && !lastOut) {
         const isToday = day === new Date().toISOString().split('T')[0];
         if (!isToday) {
           missingCheckouts++;
-          dailyDetails.push({ day, formattedDay, formattedFirstIn, formattedLastOut, firstIn, lastOut: null, status: 'missing_checkout' });
+          dailyDetails.push({ 
+            day, 
+            formattedDay, 
+            formattedFirstIn, 
+            formattedLastOut, 
+            firstIn, 
+            lastOut: null, 
+            isLate, 
+            lateMinutes, 
+            fineAmount, 
+            status: 'missing_checkout' 
+          });
         } else {
-          dailyDetails.push({ day, formattedDay, formattedFirstIn, formattedLastOut, firstIn, lastOut: null, status: 'in_progress' });
+          dailyDetails.push({ 
+            day, 
+            formattedDay, 
+            formattedFirstIn, 
+            formattedLastOut, 
+            firstIn, 
+            lastOut: null, 
+            isLate, 
+            lateMinutes, 
+            fineAmount, 
+            status: 'in_progress' 
+          });
         }
       }
     });
 
-    // Расчет ЗП с переработками
+    // Расчет ЗП с переработками и штрафами
     const hourlyRate = (emp.shift_rate || 0) / 8;
     const basePay = completedShifts * (emp.shift_rate || 0);
     const overtimePay = totalOvertimeHours * hourlyRate;
+    const totalEarned = (basePay + overtimePay - totalFines).toFixed(0);
+
+    return {
+      ...emp,
+      completedShifts,
+      totalWorkedHours,
+      overtimeHours: totalOvertimeHours,
+      totalFines,
+      totalEarned: parseInt(totalEarned),
+      missingCheckouts,
+      dailyDetails
+    };
+  }) || [];otalOvertimeHours * hourlyRate;
     const totalEarned = (basePay + overtimePay).toFixed(0);
 
     return {
@@ -194,6 +263,7 @@ export default async function TimesheetPage({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Часы</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ставка за смену</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Переработки (ч)</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Штрафы (оп.)</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Незакрытые смены</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Итого к выплате</th>
             </tr>

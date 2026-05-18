@@ -81,27 +81,7 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
     if (lastRecord && lastRecord.record_type === "check_in") {
       newRecordType = "check_out";
 
-      // Проверка выработки перед уходом
-      const isTester = employeeProfile?.full_name?.toLowerCase().includes("тимур") || 
-                       employeeProfile?.full_name?.toLowerCase().includes("рукием") || 
-                       employeeProfile?.can_upload_production;
-
-      if (isTester) {
-        // Ищем записи о выработке, созданные ПОСЛЕ времени начала смены (check_in)
-        const { data: prodLogs } = await supabaseAdmin
-          .from("production_logs")
-          .select("id")
-          .eq("employee_id", user.id)
-          .gte("created_at", lastRecord.recorded_at)
-          .limit(1);
-
-        if (!prodLogs || prodLogs.length === 0) {
-          return { 
-            success: false, 
-            error: "Сначала загрузите выработку за эту смену во вкладке «Выработка»!" 
-          };
-        }
-      }
+      // Проверка выработки перед уходом удалена
     }
 
     // 5. Запись в базу с использованием клиентского времени

@@ -48,6 +48,9 @@ export default function TimesheetRow({ row }: { row: any }) {
         <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600 font-medium">
           {row.overtimeHours > 0 ? `+${row.overtimeHours} ч` : "—"}
         </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+          {row.totalFines > 0 ? `-${row.totalFines} ₸` : "—"}
+        </td>
         <td className="px-6 py-4 whitespace-nowrap">
           {row.missingCheckouts > 0 ? (
             <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
@@ -64,7 +67,7 @@ export default function TimesheetRow({ row }: { row: any }) {
       
       {isExpanded && (
         <tr className="bg-gray-50/50">
-          <td colSpan={7} className="px-6 py-4">
+          <td colSpan={8} className="px-6 py-4">
             <div className="text-xs font-semibold text-gray-500 uppercase mb-3 px-2">Детализация по дням:</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {row.dailyDetails.map((detail: any) => (
@@ -78,6 +81,15 @@ export default function TimesheetRow({ row }: { row: any }) {
                       {detail.status === 'complete' ? 'Отработано' : detail.status === 'in_progress' ? 'В процессе' : 'Ошибка'}
                     </span>
                   </div>
+
+                  {/* Опоздание и штраф */}
+                  {detail.isLate && (
+                    <div className="bg-red-50 text-red-800 text-[11px] px-2.5 py-1 rounded-md mb-2 flex justify-between items-center font-medium">
+                      <span>⏰ Опоздание: {detail.lateMinutes} мин.</span>
+                      <span className="font-bold">Штраф: {detail.fineAmount} ₸</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between text-sm mb-1">
                     <div className="text-gray-500">Приход: <span className="text-gray-900 font-medium">{detail.firstIn ? <LocalTime isoString={detail.firstIn} formatStr="HH:mm" /> : "—"}</span></div>
                     <div className="text-gray-500">Уход: <span className="text-gray-900 font-medium">{detail.lastOut ? <LocalTime isoString={detail.lastOut} formatStr="HH:mm" /> : "—"}</span></div>

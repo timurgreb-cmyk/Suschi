@@ -16,7 +16,6 @@ export default function AdminMobileMenu({ adminName }: { adminName: string }) {
     { name: "Сотрудники", href: "/admin/employees", icon: Users },
     { name: "Журнал", href: "/admin/attendance", icon: Clock },
     { name: "Табель", href: "/admin/timesheet", icon: Clock },
-    { name: "Выработка", href: "/admin/production", icon: LayoutDashboard },
     { name: "Локации", href: "/admin/locations", icon: MapPin },
   ];
 

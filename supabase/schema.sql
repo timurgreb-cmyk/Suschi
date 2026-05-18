@@ -3,6 +3,10 @@ CREATE TABLE public.locations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     description TEXT,
+    base_hours NUMERIC DEFAULT 8,
+    work_start_time TEXT DEFAULT '11:00',
+    work_end_time TEXT DEFAULT '00:00',
+    late_fine_amount NUMERIC DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -110,3 +114,4 @@ CREATE POLICY "Admin can manage all shifts" ON public.shifts
 
 -- Функция для автоматического создания профиля (опционально, если admin создает юзера через auth API)
 -- Мы не используем триггер, так как Admin будет использовать service_role для создания профиля.
+
