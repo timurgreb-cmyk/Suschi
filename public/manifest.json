@@ -1,6 +1,6 @@
 {
-  "name": "NULL.Control — Учёт рабочего времени",
-  "short_name": "NULL.Control",
+  "name": "Suschi Control — Учёт рабочего времени",
+  "short_name": "Suschi Control",
   "description": "Система учёта рабочего времени",
   "start_url": "/app/scan",
   "display": "standalone",

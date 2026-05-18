@@ -24,7 +24,7 @@ export default function AdminMobileMenu({ adminName }: { adminName: string }) {
     <div className="md:hidden">
       {/* Top Bar */}
       <div className="bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-        <h1 className="text-xl font-bold text-gray-900">NULL.Control</h1>
+        <h1 className="text-xl font-bold text-gray-900">Suschi Control</h1>
         <button 
           onClick={() => setIsOpen(!isOpen)}
           className="p-2 -mr-2 text-gray-600 hover:text-primary transition-colors"

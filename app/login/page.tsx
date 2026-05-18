@@ -67,7 +67,7 @@ export default function LoginPage() {
           <div className="h-16 w-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
             <Lock className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">NULL.Control</h2>
+          <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Suschi Control</h2>
           <p className="text-sm text-gray-500 mt-1">
             {mode === "pin" ? "Введите ваш PIN-код" : "Вход для администратора"}
           </p>
