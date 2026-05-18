@@ -226,18 +226,6 @@ export default async function TimesheetPage({
       missingCheckouts,
       dailyDetails
     };
-  }) || [];otalOvertimeHours * hourlyRate;
-    const totalEarned = (basePay + overtimePay).toFixed(0);
-
-    return {
-      ...emp,
-      completedShifts,
-      totalWorkedHours,
-      overtimeHours: totalOvertimeHours,
-      totalEarned: parseInt(totalEarned),
-      missingCheckouts,
-      dailyDetails
-    };
   }) || [];
 
   const periodStr = format(startDate, "yyyy_MM");
