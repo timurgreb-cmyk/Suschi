@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import LocalTime from "@/components/LocalTime";
-import { processOvertimeApproval } from "@/app/actions/timesheet";
+import { processOvertimeApproval, processLateFineApproval } from "@/app/actions/timesheet";
 
 export default function TimesheetRow({ row }: { row: any }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [customFines, setCustomFines] = useState<Record<string, string>>({});
+  const [editingFineDay, setEditingFineDay] = useState<string | null>(null);
 
   const handleApprove = async (e: React.MouseEvent, detail: any) => {
     e.stopPropagation();
@@ -19,6 +21,29 @@ export default function TimesheetRow({ row }: { row: any }) {
     e.stopPropagation();
     setLoading(true);
     await processOvertimeApproval(row.id, detail.day, detail.calculatedOvertime, 0, 'rejected');
+    setLoading(false);
+  };
+
+  const handleApproveFine = async (e: React.MouseEvent, detail: any, customAmount?: number) => {
+    e.stopPropagation();
+    setLoading(true);
+    const finalAmount = customAmount !== undefined ? customAmount : detail.calculatedFine;
+    await processLateFineApproval(row.id, detail.day, detail.calculatedFine, finalAmount, 'approved');
+    setEditingFineDay(null);
+    setLoading(false);
+  };
+
+  const handleRejectFine = async (e: React.MouseEvent, detail: any) => {
+    e.stopPropagation();
+    setLoading(true);
+    await processLateFineApproval(row.id, detail.day, detail.calculatedFine, 0, 'rejected');
+    setLoading(false);
+  };
+
+  const handleResetFine = async (e: React.MouseEvent, detail: any) => {
+    e.stopPropagation();
+    setLoading(true);
+    await processLateFineApproval(row.id, detail.day, detail.calculatedFine, detail.calculatedFine, 'pending');
     setLoading(false);
   };
 
@@ -82,11 +107,93 @@ export default function TimesheetRow({ row }: { row: any }) {
                     </span>
                   </div>
 
-                  {/* Опоздание и штраф */}
-                  {detail.isLate && (
-                    <div className="bg-red-50 text-red-800 text-[11px] px-2.5 py-1 rounded-md mb-2 flex justify-between items-center font-medium">
+                  {/* Опоздание и штраф с ручным подтверждением */}
+                  {detail.isLate && detail.calculatedFine > 0 && (
+                    <div className="bg-red-50 text-red-800 text-[11px] p-2.5 rounded-md mb-2 flex flex-col gap-2 font-medium border border-red-100 shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <span>⏰ Опоздание: {detail.lateMinutes} мин.</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                          detail.fineApprovalStatus === 'approved' ? 'bg-green-200 text-green-800' :
+                          detail.fineApprovalStatus === 'rejected' ? 'bg-gray-200 text-gray-800' : 'bg-yellow-200 text-yellow-800'
+                        }`}>
+                          {detail.fineApprovalStatus === 'approved' ? `Подтвержден (${detail.fineAmount} ₸)` :
+                           detail.fineApprovalStatus === 'rejected' ? 'Списан (0 ₸)' : 'Ожидает решения'}
+                        </span>
+                      </div>
+                      
+                      {editingFineDay === detail.day ? (
+                        <div className="flex gap-1.5 items-center mt-1">
+                          <input
+                            type="number"
+                            value={customFines[detail.day] !== undefined ? customFines[detail.day] : detail.fineAmount}
+                            onChange={(e) => setCustomFines({ ...customFines, [detail.day]: e.target.value })}
+                            className="w-20 p-1 border border-red-200 rounded text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-red-400"
+                            placeholder="Сумма"
+                          />
+                          <button
+                            onClick={(e) => handleApproveFine(e, detail, parseInt(customFines[detail.day]) || 0)}
+                            disabled={loading}
+                            className="bg-green-600 text-white px-2 py-1 rounded text-[10px] hover:bg-green-700 transition-colors font-bold disabled:opacity-50"
+                          >
+                            Сохранить
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEditingFineDay(null); }}
+                            className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-[10px] hover:bg-gray-300 transition-colors font-bold"
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center border-t border-red-100/50 pt-1.5 mt-1">
+                          <span className="text-[10px] text-red-700">
+                            Расчетный: <span className="font-bold">{detail.calculatedFine} ₸</span>
+                          </span>
+                          
+                          {detail.fineApprovalStatus === 'pending' && (
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={(e) => handleApproveFine(e, detail)}
+                                disabled={loading}
+                                className="bg-red-600 hover:bg-red-700 text-white px-2 py-0.5 rounded text-[10px] font-bold transition-colors disabled:opacity-50"
+                              >
+                                Ок
+                              </button>
+                              <button
+                                onClick={(e) => handleRejectFine(e, detail)}
+                                disabled={loading}
+                                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-2 py-0.5 rounded text-[10px] font-bold transition-colors disabled:opacity-50"
+                              >
+                                Списать
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEditingFineDay(detail.day); }}
+                                className="text-blue-700 hover:underline text-[10px] font-semibold"
+                              >
+                                Изменить
+                              </button>
+                            </div>
+                          )}
+
+                          {detail.fineApprovalStatus !== 'pending' && (
+                            <button
+                              onClick={(e) => handleResetFine(e, detail)}
+                              disabled={loading}
+                              className="text-gray-500 hover:text-gray-700 hover:underline text-[10px] font-medium"
+                            >
+                              Сбросить решение
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Опоздание в пределах нормы */}
+                  {detail.isLate && detail.calculatedFine === 0 && (
+                    <div className="bg-gray-50 text-gray-600 text-[11px] p-2 rounded-md mb-2 flex justify-between items-center font-medium border border-gray-100 shadow-sm">
                       <span>⏰ Опоздание: {detail.lateMinutes} мин.</span>
-                      <span className="font-bold">Штраф: {detail.fineAmount} ₸</span>
+                      <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full font-bold">В пределах нормы</span>
                     </div>
                   )}
 

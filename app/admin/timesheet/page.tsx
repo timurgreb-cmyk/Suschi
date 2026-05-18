@@ -67,6 +67,13 @@ export default async function TimesheetPage({
     .gte("record_date", format(startDate, 'yyyy-MM-dd'))
     .lte("record_date", format(endDate, 'yyyy-MM-dd'));
 
+  // 3.7 Получаем решения по штрафам за опоздания
+  const { data: fineApprovalsData } = await supabase
+    .from("late_fine_approvals")
+    .select("*")
+    .gte("record_date", format(startDate, 'yyyy-MM-dd'))
+    .lte("record_date", format(endDate, 'yyyy-MM-dd'));
+
   // 4. Агрегация данных
   const timesheet = employees?.map(emp => {
     const empRecords = records?.filter(r => r.employee_id === emp.id) || [];
@@ -103,7 +110,9 @@ export default async function TimesheetPage({
       // Расчет опоздания и штрафа
       let isLate = false;
       let lateMinutes = 0;
+      let calculatedFine = 0;
       let fineAmount = 0;
+      let fineApprovalStatus = 'none';
 
       const locId = firstInRec?.location_id;
       const locInfo = locId && locationMap[locId] ? locationMap[locId] : null;
@@ -116,9 +125,29 @@ export default async function TimesheetPage({
         if (checkInMins > planStartMins) {
           isLate = true;
           lateMinutes = checkInMins - planStartMins;
-          fineAmount = locInfo.late_fine_amount || 0;
-          totalFines += fineAmount;
+          // Штраф начисляется только если опоздание больше 15 минут. 
+          // За каждые 5 минут опоздания начисляется установленный тариф (например 3000 ₸)
+          if (lateMinutes > 15) {
+            const extraMinutes = lateMinutes - 15;
+            const intervals = Math.ceil(extraMinutes / 5);
+            calculatedFine = intervals * (locInfo.late_fine_amount || 0);
+          }
         }
+      }
+
+      // Проверяем ручное решение админа по штрафу
+      if (calculatedFine > 0) {
+        const existingFineApproval = fineApprovalsData?.find(
+          a => a.employee_id === emp.id && a.record_date === day
+        );
+        if (existingFineApproval) {
+          fineApprovalStatus = existingFineApproval.status;
+          fineAmount = existingFineApproval.status === 'approved' ? existingFineApproval.approved_fine : 0;
+        } else {
+          fineApprovalStatus = 'pending';
+          fineAmount = calculatedFine; // Показываем расчетный, пока не принято решение
+        }
+        totalFines += fineAmount;
       }
 
       if (firstIn && lastOut) {
@@ -174,7 +203,9 @@ export default async function TimesheetPage({
           approvalStatus,
           isLate,
           lateMinutes,
+          calculatedFine,
           fineAmount,
+          fineApprovalStatus,
           status: 'complete' 
         });
       } else if (firstIn && !lastOut) {
@@ -190,7 +221,9 @@ export default async function TimesheetPage({
             lastOut: null, 
             isLate, 
             lateMinutes, 
+            calculatedFine,
             fineAmount, 
+            fineApprovalStatus,
             status: 'missing_checkout' 
           });
         } else {
@@ -203,7 +236,9 @@ export default async function TimesheetPage({
             lastOut: null, 
             isLate, 
             lateMinutes, 
+            calculatedFine,
             fineAmount, 
+            fineApprovalStatus,
             status: 'in_progress' 
           });
         }

@@ -115,3 +115,27 @@ CREATE POLICY "Admin can manage all shifts" ON public.shifts
 -- Функция для автоматического создания профиля (опционально, если admin создает юзера через auth API)
 -- Мы не используем триггер, так как Admin будет использовать service_role для создания профиля.
 
+
+-- Таблица решений по штрафам за опоздания (Late Fine Approvals)
+CREATE TABLE public.late_fine_approvals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    record_date DATE NOT NULL,
+    calculated_fine NUMERIC NOT NULL,
+    approved_fine NUMERIC NOT NULL,
+    status TEXT CHECK (status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(employee_id, record_date)
+);
+
+ALTER TABLE public.late_fine_approvals ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own late fine approvals" ON public.late_fine_approvals
+    FOR SELECT USING (auth.uid() = employee_id);
+
+CREATE POLICY "Admin can manage all late fine approvals" ON public.late_fine_approvals
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+

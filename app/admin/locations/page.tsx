@@ -110,13 +110,13 @@ export default function LocationsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Размер штрафа (₸)</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Штраф за каждые 5 мин (после 15 мин оп.) (₸)</label>
               <div className="flex gap-2">
                 <input
                   type="number"
                   value={newLateFine}
                   onChange={(e) => setNewLateFine(parseInt(e.target.value) || 0)}
-                  placeholder="0"
+                  placeholder="3000"
                   min="0"
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm"
                 />
@@ -141,7 +141,7 @@ export default function LocationsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Часы смены</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Время (План)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Штраф за опод.</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Тариф штрафа</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
               </tr>
@@ -159,7 +159,7 @@ export default function LocationsPage() {
                     {loc.work_start_time || "11:00"} - {loc.work_end_time || "00:00"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                    {loc.late_fine_amount || 0} ₸
+                    {loc.late_fine_amount || 0} ₸ / 5 мин
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
