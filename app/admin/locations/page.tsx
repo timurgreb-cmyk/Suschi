@@ -50,6 +50,51 @@ export default function LocationsPage() {
     fetchLocations();
   };
 
+  const handleToggleActive = async (id: string, newStatus: boolean) => {
+    try {
+      const res = await fetch("/api/locations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, is_active: newStatus })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert("Ошибка: " + data.error);
+      } else {
+        fetchLocations();
+      }
+    } catch (err: any) {
+      alert("Ошибка сети: " + err.message);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить локацию "${name}"?`)) return;
+    try {
+      const res = await fetch("/api/locations", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert("Ошибка при удалении: " + data.error);
+      } else {
+        if (data.archived) {
+          alert(data.message);
+        } else {
+          alert("Локация успешно удалена!");
+        }
+        if (selectedLocation === id) {
+          setSelectedLocation(null);
+        }
+        fetchLocations();
+      }
+    } catch (err: any) {
+      alert("Ошибка сети: " + err.message);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
@@ -168,12 +213,24 @@ export default function LocationsPage() {
                       {loc.is_active ? "Активна" : "Отключена"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                     <button 
                       className="text-primary hover:text-primary/80"
                       onClick={(e) => { e.stopPropagation(); setSelectedLocation(loc.id); }}
                     >
                       Показать QR
+                    </button>
+                    <button 
+                      className={`${loc.is_active ? "text-amber-600 hover:text-amber-800" : "text-green-600 hover:text-green-800"}`}
+                      onClick={(e) => { e.stopPropagation(); handleToggleActive(loc.id, !loc.is_active); }}
+                    >
+                      {loc.is_active ? "Отключить" : "Включить"}
+                    </button>
+                    <button 
+                      className="text-red-600 hover:text-red-800 font-bold"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(loc.id, loc.name); }}
+                    >
+                      Удалить
                     </button>
                   </td>
                 </tr>

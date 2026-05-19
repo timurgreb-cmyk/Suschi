@@ -44,3 +44,54 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ location: data });
 }
+
+export async function PATCH(request: Request) {
+  const supabase = getSupabase();
+  const { id, is_active } = await request.json();
+
+  if (!id) return NextResponse.json({ error: "ID локации обязателен" }, { status: 400 });
+
+  const { data, error } = await supabase
+    .from("locations")
+    .update({ is_active })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ location: data });
+}
+
+export async function DELETE(request: Request) {
+  const supabase = getSupabase();
+  const { id } = await request.json();
+
+  if (!id) return NextResponse.json({ error: "ID локации обязателен" }, { status: 400 });
+
+  // Сначала пытаемся удалить физически
+  const { error } = await supabase
+    .from("locations")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    // Код 23503 в Postgres означает нарушение foreign key constraint (нарушение целостности связей)
+    if (error.code === "23503" || error.message?.includes("foreign key")) {
+      // Локация использовалась сотрудниками. Вместо удаления деактивируем ее
+      const { error: updateError } = await supabase
+        .from("locations")
+        .update({ is_active: false })
+        .eq("id", id);
+      
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return NextResponse.json({ 
+        success: true, 
+        archived: true, 
+        message: "Локация содержит отметки сотрудников, поэтому она была автоматически отключена, а не удалена безвозвратно." 
+      });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, archived: false });
+}
