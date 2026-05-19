@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'suschi-control',
+      name: 'sushi-control',
       script: 'node_modules/next/dist/bin/next',
       args: 'start',
       instances: 'max',

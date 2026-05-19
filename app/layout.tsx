@@ -10,8 +10,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Suschi Control — Система учёта рабочего времени",
-  description: "Suschi Control — управление сменами и табелями сотрудников",
+  title: "Sushi Control — Система учёта рабочего времени",
+  description: "Sushi Control — управление сменами и табелями сотрудников",
   manifest: "/manifest.json",
 };
 

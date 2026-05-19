@@ -1,6 +1,6 @@
 {
-  "name": "Suschi Control — Учёт рабочего времени",
-  "short_name": "Suschi Control",
+  "name": "Sushi Control — Учёт рабочего времени",
+  "short_name": "Sushi Control",
   "description": "Система учёта рабочего времени",
   "start_url": "/app/scan",
   "display": "standalone",

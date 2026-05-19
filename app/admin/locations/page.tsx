@@ -194,7 +194,7 @@ export default function LocationsPage() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col items-center text-center">
               <div id="qr-print-area">
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                  Suschi Control
+                  Sushi Control
                 </h2>
                 <p className="text-lg text-gray-700 mb-2">
                   {locations.find(l => l.id === selectedLocation)?.name}
@@ -212,7 +212,7 @@ export default function LocationsPage() {
                   />
                 </div>
 
-                <p className="text-xs text-gray-400">suschi.control</p>
+                <p className="text-xs text-gray-400">sushi.control</p>
               </div>
               
               <div className="flex gap-4 mt-6">

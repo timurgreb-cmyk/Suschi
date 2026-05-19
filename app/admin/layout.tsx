@@ -45,7 +45,7 @@ export default async function AdminLayout({
       {/* Sidebar */}
       <div className="w-64 bg-white border-r border-gray-200 flex-col hidden md:flex">
         <div className="h-16 flex items-center px-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-900">Suschi Control</h1>
+          <h1 className="text-xl font-bold text-gray-900">Sushi Control</h1>
         </div>
         
         <div className="flex-1 px-4 py-6 space-y-1">
