@@ -35,23 +35,46 @@ export default async function AttendancePage() {
     .eq("role", "employee")
     .order("full_name");
 
-  // Подсветка незакрытых смен: 
-  // если это check_in, проверяем есть ли check_out в этот же день для этого сотрудника.
-  const recordsWithErrors = records?.map(record => {
-    let isError = false;
-    if (record.record_type === "check_in") {
-      const currentDay = record.recorded_at.split('T')[0];
-      const hasCheckout = records.some(r => 
-        r.employee_id === record.employee_id && 
-        r.record_type === "check_out" && 
-        r.recorded_at.startsWith(currentDay)
-      );
-      
-      const todayDay = new Date().toISOString().split('T')[0];
-      if (!hasCheckout && currentDay !== todayDay) {
-        isError = true;
+  // Подсветка незакрытых смен с поддержкой ночных смен:
+  // Группируем отметки по сотрудникам и сортируем по возрастанию времени
+  const empRecordsMap: Record<string, any[]> = {};
+  records?.forEach(r => {
+    if (!empRecordsMap[r.employee_id]) {
+      empRecordsMap[r.employee_id] = [];
+    }
+    empRecordsMap[r.employee_id].push(r);
+  });
+
+  const errorRecordIds = new Set<string>();
+  const currentTime = new Date();
+
+  Object.values(empRecordsMap).forEach(empRecs => {
+    const sorted = [...empRecs].sort((a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime());
+    for (let i = 0; i < sorted.length; i++) {
+      const current = sorted[i];
+      if (current.record_type === 'check_in') {
+        const next = sorted[i + 1];
+        let hasCheckout = false;
+        if (next && next.record_type === 'check_out') {
+          const diffHours = (new Date(next.recorded_at).getTime() - new Date(current.recorded_at).getTime()) / (1000 * 60 * 60);
+          if (diffHours <= 20) {
+            hasCheckout = true;
+          }
+        }
+        
+        if (!hasCheckout) {
+          // Если ухода нет, подсвечиваем ошибку только если смена длится уже больше 16 часов
+          const diffFromNow = (currentTime.getTime() - new Date(current.recorded_at).getTime()) / (1000 * 60 * 60);
+          if (diffFromNow > 16) {
+            errorRecordIds.add(current.id);
+          }
+        }
       }
     }
+  });
+
+  const recordsWithErrors = records?.map(record => {
+    const isError = errorRecordIds.has(record.id);
     return { ...record, isError };
   }) || [];
 

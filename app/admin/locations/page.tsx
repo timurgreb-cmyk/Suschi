@@ -155,7 +155,7 @@ export default function LocationsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Штраф за каждые 5 мин (после 15 мин оп.) (₸)</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Штраф за каждые 5 мин (после 10 мин оп.) (₸)</label>
               <div className="flex gap-2">
                 <input
                   type="number"

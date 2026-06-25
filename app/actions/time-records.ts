@@ -30,7 +30,7 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
     // 1. Проверка локации
     const { data: location, error: locError } = await supabaseAdmin
       .from("locations")
-      .select("id, name, is_active")
+      .select("id, name, is_active, work_start_time, late_fine_amount")
       .eq("id", locationId)
       .single();
 
@@ -79,12 +79,47 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
     // 4. Определение типа (если последняя была приход - делаем уход, иначе приход)
     let newRecordType = "check_in";
     if (lastRecord && lastRecord.record_type === "check_in") {
-      newRecordType = "check_out";
+      const lastInTime = new Date(lastRecord.recorded_at).getTime();
+      const diffHours = (now.getTime() - lastInTime) / (1000 * 60 * 60);
 
-      // Проверка выработки перед уходом удалена
+      // Если прошло менее 16 часов, это уход.
+      // Если больше или равно — считаем, что сотрудник забыл отметиться вчера, и открываем новую смену.
+      if (diffHours < 16) {
+        newRecordType = "check_out";
+      }
     }
 
-    // 5. Запись в базу с использованием клиентского времени
+    // 5. Расчет опоздания и штрафа на лету
+    let isLate = false;
+    let lateMinutes = 0;
+    let calculatedFine = 0;
+
+    if (newRecordType === "check_in" && location) {
+      const localFirstIn = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+      const hh = String(localFirstIn.getUTCHours()).padStart(2, '0');
+      const mm = String(localFirstIn.getUTCMinutes()).padStart(2, '0');
+      const checkInTimeStr = `${hh}:${mm}`;
+      
+      const timeToMinutes = (timeStr: string): number => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return (h || 0) * 60 + (m || 0);
+      };
+
+      const checkInMins = timeToMinutes(checkInTimeStr);
+      const planStartMins = timeToMinutes(location.work_start_time || "11:00");
+      
+      if (checkInMins > planStartMins) {
+        isLate = true;
+        lateMinutes = checkInMins - planStartMins;
+        if (lateMinutes > 10) {
+          const extraMinutes = lateMinutes - 10;
+          const intervals = Math.ceil(extraMinutes / 5);
+          calculatedFine = intervals * (Number(location.late_fine_amount) || 0);
+        }
+      }
+    }
+
+    // 6. Запись в базу с использованием клиентского времени
     const { error: insertError } = await supabaseAdmin
       .from("time_records")
       .insert({
@@ -107,7 +142,10 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
         type: newRecordType,
         locationName: location.name,
         time: now.toISOString(),
-        message: newRecordType === "check_in" ? "Хорошей смены!" : "Хорошей дороги домой!"
+        message: newRecordType === "check_in" ? "Хорошей смены!" : "Хорошей дороги домой!",
+        isLate,
+        lateMinutes,
+        calculatedFine
       }
     };
 

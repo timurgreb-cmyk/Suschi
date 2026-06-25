@@ -7,6 +7,32 @@ import TimesheetRow from "@/components/admin/TimesheetRow";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// Вспомогательная функция для получения YYYY-MM-DD в часовом поясе Алматы (UTC+5)
+function getLocalDateString(isoString: string): string {
+  const date = new Date(isoString);
+  const localDate = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+  const yyyy = localDate.getUTCFullYear();
+  const mm = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(localDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Вспомогательная функция для форматирования времени HH:mm в часовом поясе Алматы (UTC+5)
+function getLocalTimeString(isoString: string): string {
+  const date = new Date(isoString);
+  const localDate = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+  const hh = String(localDate.getUTCHours()).padStart(2, '0');
+  const mm = String(localDate.getUTCMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+// Вспомогательная функция для форматирования даты в "d MMM (EEE)" на русском
+function formatLocalDate(dateStr: string, formatStr: string) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return format(date, formatStr, { locale: ru });
+}
+
 export default async function TimesheetPage({
   searchParams,
 }: {
@@ -52,12 +78,15 @@ export default async function TimesheetPage({
     return (h || 0) * 60 + (m || 0);
   };
 
-  // 3. Получаем отметки за месяц
+  // 3. Получаем отметки с запасом в 1 день до и после, чтобы корректно связать ночные смены
+  const queryStartDate = new Date(startDate.getTime() - 24 * 60 * 60 * 1000);
+  const queryEndDate = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
+
   const { data: records } = await supabase
     .from("time_records")
     .select("*")
-    .gte("recorded_at", startDate.toISOString())
-    .lte("recorded_at", endDate.toISOString())
+    .gte("recorded_at", queryStartDate.toISOString())
+    .lte("recorded_at", queryEndDate.toISOString())
     .order("recorded_at", { ascending: true });
 
   // 3.5 Получаем решения по переработкам (свыше 3 часов)
@@ -83,59 +112,120 @@ export default async function TimesheetPage({
     let totalWorkedHours = 0;
     let totalFines = 0;
 
-    // Группируем по дням
-    const days: Record<string, typeof empRecords> = {};
-    empRecords.forEach(r => {
-      const day = format(parseISO(r.recorded_at), 'yyyy-MM-dd');
-      if (!days[day]) days[day] = [];
-      days[day].push(r);
+    // Хронологическое связывание смен
+    interface RawShift {
+      firstIn: any | null;
+      lastOut: any | null;
+      representativeDate: string;
+    }
+
+    const rawShifts: RawShift[] = [];
+    let currentCheckIn: any = null;
+
+    for (let i = 0; i < empRecords.length; i++) {
+      const r = empRecords[i];
+      if (r.record_type === 'check_in') {
+        if (currentCheckIn) {
+          rawShifts.push({
+            firstIn: currentCheckIn,
+            lastOut: null,
+            representativeDate: getLocalDateString(currentCheckIn.recorded_at)
+          });
+        }
+        currentCheckIn = r;
+      } else if (r.record_type === 'check_out') {
+        if (currentCheckIn) {
+          const diffHours = (new Date(r.recorded_at).getTime() - new Date(currentCheckIn.recorded_at).getTime()) / (1000 * 60 * 60);
+          if (diffHours <= 20) {
+            rawShifts.push({
+              firstIn: currentCheckIn,
+              lastOut: r,
+              representativeDate: getLocalDateString(currentCheckIn.recorded_at)
+            });
+            currentCheckIn = null;
+          } else {
+            rawShifts.push({
+              firstIn: currentCheckIn,
+              lastOut: null,
+              representativeDate: getLocalDateString(currentCheckIn.recorded_at)
+            });
+            rawShifts.push({
+              firstIn: null,
+              lastOut: r,
+              representativeDate: getLocalDateString(r.recorded_at)
+            });
+            currentCheckIn = null;
+          }
+        } else {
+          rawShifts.push({
+            firstIn: null,
+            lastOut: r,
+            representativeDate: getLocalDateString(r.recorded_at)
+          });
+        }
+      }
+    }
+
+    if (currentCheckIn) {
+      rawShifts.push({
+        firstIn: currentCheckIn,
+        lastOut: null,
+        representativeDate: getLocalDateString(currentCheckIn.recorded_at)
+      });
+    }
+
+    // Оставляем только смены текущего месяца
+    const startStr = format(startDate, 'yyyy-MM-dd');
+    const endStr = format(endDate, 'yyyy-MM-dd');
+    const monthlyShifts = rawShifts.filter(s => s.representativeDate >= startStr && s.representativeDate <= endStr);
+
+    // Группируем по дню, чтобы исключить дублирование ключей в рендере
+    const groupedShifts: Record<string, RawShift[]> = {};
+    monthlyShifts.forEach(s => {
+      if (!groupedShifts[s.representativeDate]) {
+        groupedShifts[s.representativeDate] = [];
+      }
+      groupedShifts[s.representativeDate].push(s);
     });
 
     const dailyDetails: any[] = [];
 
-    Object.entries(days).forEach(([day, dayRecords]) => {
-      const dayCheckIns = dayRecords.filter(r => r.record_type === 'check_in');
-      const dayCheckOuts = dayRecords.filter(r => r.record_type === 'check_out');
+    Object.entries(groupedShifts).forEach(([day, shiftsForDay]) => {
+      const mainShift = shiftsForDay[0];
+      const firstIn = mainShift.firstIn?.recorded_at || null;
+      const lastOut = mainShift.lastOut?.recorded_at || null;
 
-      const firstInRec = dayCheckIns.length > 0 ? dayCheckIns[0] : null;
-      const lastOutRec = dayCheckOuts.length > 0 ? dayCheckOuts[dayCheckOuts.length - 1] : null;
+      const formattedDay = formatLocalDate(day, "d MMM (EEE)");
+      const formattedFirstIn = firstIn ? getLocalTimeString(firstIn) : "—";
+      const formattedLastOut = lastOut ? getLocalTimeString(lastOut) : "—";
 
-      const firstIn = firstInRec?.recorded_at || null;
-      const lastOut = lastOutRec?.recorded_at || null;
-
-      const formattedDay = format(parseISO(day), "d MMM (EEE)", { locale: ru });
-      const formattedFirstIn = firstIn ? format(parseISO(firstIn), "HH:mm") : "—";
-      const formattedLastOut = lastOut ? format(parseISO(lastOut), "HH:mm") : "—";
-
-      // Расчет опоздания и штрафа
+      // Расчет опоздания и штрафа (по первой отметке)
       let isLate = false;
       let lateMinutes = 0;
       let calculatedFine = 0;
       let fineAmount = 0;
       let fineApprovalStatus = 'none';
 
-      const locId = firstInRec?.location_id;
+      const locId = mainShift.firstIn?.location_id;
       const locInfo = locId && locationMap[locId] ? locationMap[locId] : null;
 
       if (firstIn && locInfo) {
-        const checkInTimeStr = format(parseISO(firstIn), "HH:mm");
+        const checkInTimeStr = getLocalTimeString(firstIn);
         const checkInMins = timeToMinutes(checkInTimeStr);
         const planStartMins = timeToMinutes(locInfo.work_start_time || "11:00");
         
         if (checkInMins > planStartMins) {
           isLate = true;
           lateMinutes = checkInMins - planStartMins;
-          // Штраф начисляется только если опоздание больше 15 минут. 
-          // За каждые 5 минут опоздания начисляется установленный тариф (например 3000 ₸)
-          if (lateMinutes > 15) {
-            const extraMinutes = lateMinutes - 15;
+          if (lateMinutes > 10) {
+            const extraMinutes = lateMinutes - 10;
             const intervals = Math.ceil(extraMinutes / 5);
             calculatedFine = intervals * (locInfo.late_fine_amount || 0);
           }
         }
       }
 
-      // Проверяем ручное решение админа по штрафу
+      // Проверяем решение админа
       if (calculatedFine > 0) {
         const existingFineApproval = fineApprovalsData?.find(
           a => a.employee_id === emp.id && a.record_date === day
@@ -145,29 +235,41 @@ export default async function TimesheetPage({
           fineAmount = existingFineApproval.status === 'approved' ? existingFineApproval.approved_fine : 0;
         } else {
           fineApprovalStatus = 'pending';
-          fineAmount = calculatedFine; // Показываем расчетный, пока не принято решение
+          fineAmount = calculatedFine;
         }
         totalFines += fineAmount;
       }
 
-      if (firstIn && lastOut) {
+      // Подсчет часов
+      let actualHours = 0;
+      let status: 'complete' | 'missing_checkout' | 'in_progress' = 'complete';
+
+      shiftsForDay.forEach(s => {
+        if (s.firstIn && s.lastOut) {
+          const actualMins = differenceInMinutes(parseISO(s.lastOut.recorded_at), parseISO(s.firstIn.recorded_at));
+          actualHours += actualMins / 60;
+        } else if (s.firstIn && !s.lastOut) {
+          const todayDateStr = getLocalDateString(new Date().toISOString());
+          if (s.representativeDate === todayDateStr) {
+            status = 'in_progress';
+          } else {
+            status = 'missing_checkout';
+          }
+        } else if (!s.firstIn && s.lastOut) {
+          status = 'missing_checkout';
+        }
+      });
+
+      if (status === 'complete') {
         completedShifts++;
-        
-        // Считаем часы
-        const actualMins = differenceInMinutes(parseISO(lastOut), parseISO(firstIn));
-        const actualHours = actualMins / 60;
-        
         totalWorkedHours += actualHours;
 
-        // Получаем базу из локации прихода
         const baseHours = locInfo ? locInfo.base_hours : 8;
         
         let calculatedOvertime = 0;
         if (emp.is_overtime_enabled !== false) {
-          // 1 час идет как обед, т.е. отнимаем (baseHours + 1)
           const rawOvertime = actualHours - (baseHours + 1);
           if (rawOvertime > 0) {
-            // Переработки считаются только за целый час
             calculatedOvertime = Math.floor(rawOvertime);
           }
         }
@@ -183,7 +285,7 @@ export default async function TimesheetPage({
             overtime = existingApproval.status === 'approved' ? existingApproval.approved_hours : 0;
           } else {
             approvalStatus = 'pending';
-            overtime = 0; // Пока не одобрено, не начисляем
+            overtime = 0;
           }
         }
 
@@ -208,42 +310,28 @@ export default async function TimesheetPage({
           fineApprovalStatus,
           status: 'complete' 
         });
-      } else if (firstIn && !lastOut) {
-        const isToday = day === new Date().toISOString().split('T')[0];
-        if (!isToday) {
+      } else {
+        if (status === 'missing_checkout') {
           missingCheckouts++;
-          dailyDetails.push({ 
-            day, 
-            formattedDay, 
-            formattedFirstIn, 
-            formattedLastOut, 
-            firstIn, 
-            lastOut: null, 
-            isLate, 
-            lateMinutes, 
-            calculatedFine,
-            fineAmount, 
-            fineApprovalStatus,
-            status: 'missing_checkout' 
-          });
-        } else {
-          dailyDetails.push({ 
-            day, 
-            formattedDay, 
-            formattedFirstIn, 
-            formattedLastOut, 
-            firstIn, 
-            lastOut: null, 
-            isLate, 
-            lateMinutes, 
-            calculatedFine,
-            fineAmount, 
-            fineApprovalStatus,
-            status: 'in_progress' 
-          });
         }
+        dailyDetails.push({ 
+          day, 
+          formattedDay, 
+          formattedFirstIn, 
+          formattedLastOut, 
+          firstIn, 
+          lastOut, 
+          isLate, 
+          lateMinutes, 
+          calculatedFine,
+          fineAmount, 
+          fineApprovalStatus,
+          status 
+        });
       }
     });
+
+    dailyDetails.sort((a, b) => a.day.localeCompare(b.day));
 
     // Расчет ЗП с переработками и штрафами
     const hourlyRate = (emp.shift_rate || 0) / 8;

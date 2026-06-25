@@ -14,7 +14,13 @@ type ScanStatus = "idle" | "scanning" | "processing" | "success" | "error";
 export default function ScanPage() {
   const [status, setStatus] = useState<ScanStatus>("scanning");
   const [message, setMessage] = useState<string>("");
-  const [resultData, setResultData] = useState<{type: string, location: string} | null>(null);
+  const [resultData, setResultData] = useState<{
+    type: string;
+    location: string;
+    isLate?: boolean;
+    lateMinutes?: number;
+    calculatedFine?: number;
+  } | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
 
   // Камера будет запускаться только по кнопке, 
@@ -31,7 +37,10 @@ export default function ScanPage() {
         setStatus("success");
         setResultData({
           type: result.data.type,
-          location: result.data.locationName
+          location: result.data.locationName,
+          isLate: result.data.isLate,
+          lateMinutes: result.data.lateMinutes,
+          calculatedFine: result.data.calculatedFine
         });
         setMessage(result.data.message || (result.data.type === "check_in" ? "Приход успешно отмечен!" : "Уход успешно отмечен!"));
       } else {
@@ -135,12 +144,23 @@ export default function ScanPage() {
                 <CheckCircle2 className="w-10 h-10 text-white" />
               </div>
               <h2 className="text-2xl font-black text-gray-900 mb-2">{message}</h2>
-              {resultData && (
-                <div className="bg-gray-50 border border-gray-100 rounded-xl py-3 px-4 w-full mb-8">
+               {resultData && (
+                <div className="bg-gray-50 border border-gray-100 rounded-xl py-3 px-4 w-full mb-4">
                   <p className="text-sm text-gray-500 font-medium mb-1">Локация</p>
                   <p className="text-gray-900 font-bold">{resultData.location}</p>
                 </div>
               )}
+              {resultData && resultData.isLate && resultData.calculatedFine && resultData.calculatedFine > 0 ? (
+                <div className="bg-red-50 border border-red-100 rounded-2xl py-4 px-4 w-full mb-8 text-left">
+                  <p className="text-xs text-red-500 font-black uppercase tracking-wider mb-1 flex items-center">
+                    ⚠️ Обнаружено опоздание
+                  </p>
+                  <p className="text-sm text-gray-700 font-medium">
+                    Вы опоздали на <span className="font-bold text-red-600">{resultData.lateMinutes} мин</span>.<br/>
+                    Начислен штраф: <span className="font-bold text-red-600">{resultData.calculatedFine} ₸</span> (ожидает решения администратора).
+                  </p>
+                </div>
+              ) : null}
               <button 
                 onClick={() => setStatus("scanning")}
                 className="w-full bg-green-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-all"

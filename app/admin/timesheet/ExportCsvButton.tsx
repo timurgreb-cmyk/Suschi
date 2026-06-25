@@ -27,8 +27,8 @@ export default function ExportCsvButton({ data, month }: { data: any[], month: s
             `"${emp.full_name}"`,
             day.day,
             day.status === 'complete' ? "Отработано" : day.status === 'in_progress' ? "В процессе" : "Ошибка (нет ухода)",
-            day.firstIn ? day.firstIn.split('T')[1].substring(0, 5) : "—",
-            day.lastOut ? day.lastOut.split('T')[1].substring(0, 5) : "—",
+            day.formattedFirstIn || "—",
+            day.formattedLastOut || "—",
             day.actualHours ? day.actualHours.toFixed(1) : "0",
             day.overtime ? day.overtime.toFixed(1) : "0",
             index === 0 ? emp.shift_rate || 0 : "", // Показываем ставку только в первой строке для красоты

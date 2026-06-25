@@ -83,6 +83,7 @@ export async function processLateFineApproval(
     if (error) return { error: error.message };
     
     revalidatePath("/admin/timesheet");
+    revalidatePath("/admin/fines");
     return { success: true };
   } catch (err: any) {
     return { error: err.message };

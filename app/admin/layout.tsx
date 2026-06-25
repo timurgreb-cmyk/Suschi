@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createSessionClient } from "@/utils/supabase/server";
-import { Clock, Users, LayoutDashboard, MapPin, LogOut } from "lucide-react";
+import { Clock, Users, LayoutDashboard, MapPin, LogOut, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { logout } from "@/app/actions/auth";
 import AdminMobileMenu from "@/components/AdminMobileMenu";
@@ -35,6 +35,7 @@ export default async function AdminLayout({
     { name: "Сотрудники", href: "/admin/employees", icon: Users },
     { name: "Журнал", href: "/admin/attendance", icon: Clock },
     { name: "Табель", href: "/admin/timesheet", icon: Clock },
+    { name: "Штрафы", href: "/admin/fines", icon: AlertTriangle },
     { name: "Локации", href: "/admin/locations", icon: MapPin },
   ];
 
