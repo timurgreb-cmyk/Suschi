@@ -8,32 +8,50 @@ export const revalidate = 0;
 
 // Вспомогательные функции для работы с датами и часовым поясом UTC+5 (Алматы)
 function getLocalDateString(isoString: string): string {
-  const date = new Date(isoString);
-  const localDate = new Date(date.getTime() + 5 * 60 * 60 * 1000);
-  const yyyy = localDate.getUTCFullYear();
-  const mm = String(localDate.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(localDate.getUTCDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  if (!isoString) return "";
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "";
+    const localDate = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+    const yyyy = localDate.getUTCFullYear();
+    const mm = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(localDate.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  } catch (e) {
+    return "";
+  }
 }
 
 function getLocalTimeString(isoString: string): string {
-  const date = new Date(isoString);
-  const localDate = new Date(date.getTime() + 5 * 60 * 60 * 1000);
-  const hh = String(localDate.getUTCHours()).padStart(2, '0');
-  const mm = String(localDate.getUTCMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
+  if (!isoString) return "—";
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "—";
+    const localDate = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+    const hh = String(localDate.getUTCHours()).padStart(2, '0');
+    const mm = String(localDate.getUTCMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  } catch (e) {
+    return "—";
+  }
 }
 
 function formatLocalDate(dateStr: string, formatStr: string) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return format(date, formatStr, { locale: ru });
+  if (!dateStr || dateStr.includes("NaN")) return "—";
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    if (isNaN(date.getTime())) return "—";
+    return format(date, formatStr, { locale: ru });
+  } catch (e) {
+    return "—";
+  }
 }
 
 export default async function FinesPage({
   searchParams,
 }: {
-  searchParams: { month?: string; year?: string };
+  searchParams?: { month?: string; year?: string };
 }) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,8 +59,8 @@ export default async function FinesPage({
   );
 
   const now = new Date();
-  const currentMonth = searchParams.month ? parseInt(searchParams.month) : now.getMonth();
-  const currentYear = searchParams.year ? parseInt(searchParams.year) : now.getFullYear();
+  const currentMonth = searchParams?.month ? parseInt(searchParams.month) : now.getMonth();
+  const currentYear = searchParams?.year ? parseInt(searchParams.year) : now.getFullYear();
 
   const startDate = startOfMonth(new Date(currentYear, currentMonth));
   const endDate = endOfMonth(startDate);
@@ -64,12 +82,13 @@ export default async function FinesPage({
     locationMap[loc.id] = {
       name: loc.name,
       work_start_time: loc.work_start_time || "11:00",
-      late_fine_amount: loc.late_fine_amount || 0
+      late_fine_amount: Number(loc.late_fine_amount) || 0
     };
   });
 
   // Вспомогательная функция для перевода времени HH:mm в минуты
   const timeToMinutes = (timeStr: string): number => {
+    if (!timeStr) return 0;
     const [h, m] = timeStr.split(':').map(Number);
     return (h || 0) * 60 + (m || 0);
   };
@@ -105,13 +124,16 @@ export default async function FinesPage({
     const days: Record<string, typeof empRecords> = {};
     empRecords.forEach(r => {
       const day = getLocalDateString(r.recorded_at);
-      if (!days[day]) days[day] = [];
-      days[day].push(r);
+      if (day) {
+        if (!days[day]) days[day] = [];
+        days[day].push(r);
+      }
     });
 
     Object.entries(days).forEach(([day, dayRecords]) => {
-      // Нам нужен только первый приход за этот день
+      if (!dayRecords || dayRecords.length === 0) return;
       const firstInRec = dayRecords[0];
+      if (!firstInRec || !firstInRec.location_id) return;
       const locInfo = locationMap[firstInRec.location_id];
       if (!locInfo) return;
 
@@ -135,7 +157,7 @@ export default async function FinesPage({
             );
 
             const approvalStatus = approval ? approval.status : 'pending';
-            const fineAmount = approval ? approval.approved_fine : calculatedFine;
+            const fineAmount = approval ? Number(approval.approved_fine) : calculatedFine;
 
             // Фильтруем по выбранному месяцу по representativeDate (day)
             if (day >= startStr && day <= endStr) {
