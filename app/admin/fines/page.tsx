@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import FinesListClient from "@/components/admin/FinesListClient";
+import FinesMonthSelector from "@/components/admin/FinesMonthSelector";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -206,34 +207,11 @@ export default async function FinesPage({
         </div>
 
         {/* Month Selector */}
-        <form method="GET" className="flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-gray-200 shadow-sm shrink-0">
-          <select 
-            name="month" 
-            defaultValue={currentMonth}
-            className="bg-transparent border-0 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-0 cursor-pointer pr-8"
-            onChange={(e) => {
-              const form = e.target.form;
-              if (form) form.submit();
-            }}
-          >
-            {monthsList.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </select>
-          <select 
-            name="year" 
-            defaultValue={currentYear}
-            className="bg-transparent border-0 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-0 cursor-pointer pr-8 border-l border-gray-150 pl-3"
-            onChange={(e) => {
-              const form = e.target.form;
-              if (form) form.submit();
-            }}
-          >
-            {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </form>
+        <FinesMonthSelector 
+          currentMonth={currentMonth} 
+          currentYear={currentYear} 
+          monthsList={monthsList} 
+        />
       </div>
 
       <FinesListClient fines={finesList} monthStr={periodStr} />
