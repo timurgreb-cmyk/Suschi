@@ -226,3 +226,34 @@ export async function createManualRecord(formData: FormData) {
     return { error: err.message };
   }
 }
+
+export async function deleteAllRecords() {
+  try {
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    
+    // Проверка прав (должен быть админ)
+    const { createClient: createSessionClient } = await import("@/utils/supabase/server");
+    const sessionClient = createSessionClient();
+    const { data: { user } } = await sessionClient.auth.getUser();
+    if (!user) return { error: "Необходима авторизация" };
+    
+    const { data: profile } = await supabaseAdmin.from("profiles").select("role").eq("id", user.id).single();
+    if (profile?.role !== "admin") return { error: "Нет прав для удаления" };
+
+    const { error } = await supabaseAdmin.from("time_records").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) return { error: error.message };
+    
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/admin/attendance");
+    revalidatePath("/admin/timesheet");
+    revalidatePath("/admin/fines");
+    
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message };
+  }
+}
+

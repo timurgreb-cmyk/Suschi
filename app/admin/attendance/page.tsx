@@ -4,6 +4,7 @@ import { ru } from "date-fns/locale";
 import DeleteRecordButton from "./DeleteRecordButton";
 import AddRecordModal from "./AddRecordModal";
 import LocalTime from "@/components/LocalTime";
+import ResetAttendanceButton from "./ResetAttendanceButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -97,9 +98,12 @@ export default async function AttendancePage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Журнал отметок</h1>
-        <AddRecordModal employees={employees || []} />
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <ResetAttendanceButton />
+          <AddRecordModal employees={employees || []} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

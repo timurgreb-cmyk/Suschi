@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { processLateFineApproval } from "@/app/actions/timesheet";
-import { AlertCircle, Check, X, Edit2, Search, Calendar, Landmark } from "lucide-react";
+import { processLateFineApproval, resetMonthLateFines } from "@/app/actions/timesheet";
+import { AlertCircle, Check, X, Edit2, Search, Calendar, Landmark, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function FinesListClient({
   fines,
+  monthStr,
 }: {
   fines: any[];
   monthStr: string;
@@ -17,6 +18,27 @@ export default function FinesListClient({
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customFineVal, setCustomFineVal] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetAll = async () => {
+    if (
+      !confirm(
+        "ВНИМАНИЕ! Вы собираетесь сбросить ВСЕ решения по штрафам за выбранный месяц.\n\nВсе штрафы вернутся в статус «Ожидает решения». Продолжить?"
+      )
+    ) {
+      return;
+    }
+
+    setResetting(true);
+    const result = await resetMonthLateFines(monthStr);
+    if (result.error) {
+      alert("Ошибка: " + result.error);
+    } else {
+      router.refresh();
+      alert("Решения по штрафам за этот месяц успешно сброшены.");
+    }
+    setResetting(false);
+  };
 
   const handleAction = async (employeeId: string, day: string, calculated: number, approved: number, status: 'approved' | 'rejected' | 'pending') => {
     const idKey = `${employeeId}_${day}`;
@@ -97,22 +119,33 @@ export default function FinesListClient({
           />
         </div>
 
-        <div className="flex gap-1.5 w-full sm:w-auto">
-          {(["all", "pending", "approved", "rejected"] as const).map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setStatusFilter(filter)}
-              className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-                statusFilter === filter
-                  ? "bg-primary border-primary text-white shadow-sm"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {filter === "all" ? "Все" :
-               filter === "pending" ? "Ожидают" :
-               filter === "approved" ? "Подтверждены" : "Списаны"}
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="flex gap-1.5 w-full sm:w-auto">
+            {(["all", "pending", "approved", "rejected"] as const).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setStatusFilter(filter)}
+                className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                  statusFilter === filter
+                    ? "bg-primary border-primary text-white shadow-sm"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {filter === "all" ? "Все" :
+                 filter === "pending" ? "Ожидают" :
+                 filter === "approved" ? "Подтверждены" : "Списаны"}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleResetAll}
+            disabled={resetting}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-red-200 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 disabled:opacity-50 transition-all shadow-sm whitespace-nowrap"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {resetting ? "Сброс..." : "Сбросить решения"}
+          </button>
         </div>
       </div>
 

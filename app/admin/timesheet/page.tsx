@@ -3,6 +3,7 @@ import { startOfMonth, endOfMonth, parseISO, differenceInMinutes, format } from 
 import { ru } from "date-fns/locale";
 import ExportCsvButton from "./ExportCsvButton";
 import TimesheetRow from "@/components/admin/TimesheetRow";
+import ResetOvertimesButton from "./ResetOvertimesButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -355,12 +356,13 @@ export default async function TimesheetPage({
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Табель</h1>
-        <div className="flex space-x-4">
-          <div suppressHydrationWarning className="text-sm text-gray-500 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div suppressHydrationWarning className="text-sm text-gray-500 bg-white px-4 py-2.5 rounded-xl shadow-sm border border-gray-200">
             Период: {format(startDate, "LLLL yyyy", { locale: ru })}
           </div>
+          <ResetOvertimesButton monthStr={periodStr} />
           <ExportCsvButton data={timesheet} month={periodStr} />
         </div>
       </div>
