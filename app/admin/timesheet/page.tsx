@@ -54,7 +54,7 @@ export default async function TimesheetPage({
   // 1. Получаем сотрудников
   const { data: employees } = await supabase
     .from("profiles")
-    .select("id, full_name, shift_rate, is_overtime_enabled")
+    .select("id, full_name, position, shift_rate, is_overtime_enabled")
     .eq("role", "employee")
     .order("full_name");
 
@@ -211,9 +211,11 @@ export default async function TimesheetPage({
       const locInfo = locId && locationMap[locId] ? locationMap[locId] : null;
 
       if (firstIn && locInfo) {
+        const isCashier = emp.position?.toLowerCase().includes("кассир") || false;
+        const employeePlanStartTime = isCashier ? "10:45" : (locInfo.work_start_time || "11:00");
         const checkInTimeStr = getLocalTimeString(firstIn);
         const checkInMins = timeToMinutes(checkInTimeStr);
-        const planStartMins = timeToMinutes(locInfo.work_start_time || "11:00");
+        const planStartMins = timeToMinutes(employeePlanStartTime);
         
         if (checkInMins > planStartMins) {
           isLate = true;

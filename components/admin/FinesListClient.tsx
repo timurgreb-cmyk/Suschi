@@ -167,7 +167,14 @@ export default function FinesListClient({
                     <AlertCircle className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 text-base">{fine.employeeName}</h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-gray-900 text-base">{fine.employeeName}</h4>
+                      {(fine.isCashier || fine.planStart === "10:45") && (
+                        <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          💰 Кассир (10:45)
+                        </span>
+                      )}
+                    </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-1">
                       <span className="font-semibold text-gray-700 capitalize">{fine.formattedDay}</span>
                       <span>•</span>

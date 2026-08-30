@@ -72,7 +72,7 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
     // Получаем профиль для проверок
     const { data: employeeProfile } = await supabaseAdmin
       .from("profiles")
-      .select("full_name, can_upload_production")
+      .select("full_name, position, can_upload_production")
       .eq("id", user.id)
       .single();
 
@@ -94,6 +94,9 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
     let lateMinutes = 0;
     let calculatedFine = 0;
 
+    const isCashier = employeeProfile?.position?.toLowerCase().includes("кассир") || false;
+    const planStartTime = isCashier ? "10:45" : (location?.work_start_time || "11:00");
+
     if (newRecordType === "check_in" && location) {
       const localFirstIn = new Date(now.getTime() + 5 * 60 * 60 * 1000);
       const hh = String(localFirstIn.getUTCHours()).padStart(2, '0');
@@ -106,7 +109,7 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
       };
 
       const checkInMins = timeToMinutes(checkInTimeStr);
-      const planStartMins = timeToMinutes(location.work_start_time || "11:00");
+      const planStartMins = timeToMinutes(planStartTime);
       
       if (checkInMins > planStartMins) {
         isLate = true;
@@ -145,7 +148,9 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
         message: newRecordType === "check_in" ? "Хорошей смены!" : "Хорошей дороги домой!",
         isLate,
         lateMinutes,
-        calculatedFine
+        calculatedFine,
+        planStart: planStartTime,
+        isCashier
       }
     };
 

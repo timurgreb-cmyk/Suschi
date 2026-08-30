@@ -69,7 +69,7 @@ export default async function FinesPage({
   // 1. Получаем сотрудников
   const { data: employees } = await supabase
     .from("profiles")
-    .select("id, full_name")
+    .select("id, full_name, position")
     .eq("role", "employee")
     .order("full_name");
 
@@ -119,6 +119,7 @@ export default async function FinesPage({
   const endStr = format(endDate, 'yyyy-MM-dd');
 
   employees?.forEach(emp => {
+    const isCashier = emp.position?.toLowerCase().includes("кассир") || false;
     const empRecords = records?.filter(r => r.employee_id === emp.id) || [];
     
     // Группируем отметки по дням
@@ -138,9 +139,10 @@ export default async function FinesPage({
       const locInfo = locationMap[firstInRec.location_id];
       if (!locInfo) return;
 
+      const employeePlanStartTime = isCashier ? "10:45" : (locInfo.work_start_time || "11:00");
       const checkInTimeStr = getLocalTimeString(firstInRec.recorded_at);
       const checkInMins = timeToMinutes(checkInTimeStr);
-      const planStartMins = timeToMinutes(locInfo.work_start_time);
+      const planStartMins = timeToMinutes(employeePlanStartTime);
 
       if (checkInMins > planStartMins) {
         const lateMinutes = checkInMins - planStartMins;
@@ -165,11 +167,12 @@ export default async function FinesPage({
               finesList.push({
                 employeeId: emp.id,
                 employeeName: emp.full_name,
+                isCashier,
                 day,
                 formattedDay: formatLocalDate(day, "d MMMM (EEE)"),
                 locationName: locInfo.name,
                 formattedFirstIn: checkInTimeStr,
-                planStart: locInfo.work_start_time,
+                planStart: employeePlanStartTime,
                 lateMinutes,
                 calculatedFine,
                 fineAmount,

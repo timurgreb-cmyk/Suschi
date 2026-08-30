@@ -20,10 +20,19 @@ export async function createEmployee(formData: FormData) {
 
   const pinCode = formData.get("pinCode") as string;
   const fullName = formData.get("fullName") as string;
-  const position = formData.get("position") as string;
+  let position = (formData.get("position") as string) || "";
   const phone = formData.get("phone") as string;
   const shiftRate = parseFloat(formData.get("shiftRate") as string) || 0;
   const isOvertimeEnabled = formData.get("isOvertimeEnabled") === "true";
+  const isCashier = formData.get("isCashier") === "true";
+
+  if (isCashier) {
+    if (!position.trim()) {
+      position = "Кассир";
+    } else if (!position.toLowerCase().includes("кассир")) {
+      position = `${position.trim()} (Кассир)`;
+    }
+  }
 
   // Генерируем системный email и пароль для PIN-кода
   const systemEmail = `pin_${pinCode}@employee.null.control`;
@@ -95,11 +104,27 @@ export async function updateEmployee(formData: FormData) {
   const id = formData.get("id") as string;
   const pinCode = formData.get("pinCode") as string;
   const fullName = formData.get("fullName") as string;
-  const position = formData.get("position") as string;
+  let position = (formData.get("position") as string) || "";
   const phone = formData.get("phone") as string;
-    const shiftRate = parseFloat(formData.get("shiftRate") as string) || 0;
+  const shiftRate = parseFloat(formData.get("shiftRate") as string) || 0;
   const isOvertimeEnabled = formData.get("isOvertimeEnabled") === "true";
   const isActive = formData.get("isActive") === "true";
+  const isCashier = formData.get("isCashier") === "true";
+
+  if (isCashier) {
+    if (!position.trim()) {
+      position = "Кассир";
+    } else if (!position.toLowerCase().includes("кассир")) {
+      position = `${position.trim()} (Кассир)`;
+    }
+  } else {
+    // If cashier was unchecked, remove "(Кассир)" or clean up "Кассир" if that was the only title
+    if (position.toLowerCase() === "кассир") {
+      position = "";
+    } else {
+      position = position.replace(/\s*\(\s*кассир\s*\)/gi, "").trim();
+    }
+  }
 
   try {
     // 1. Получаем текущие данные профиля, чтобы проверить, изменился ли PIN

@@ -66,18 +66,33 @@ export default function AddEmployeeForm({ onSuccess }: { onSuccess: () => void }
           </div>
         </div>
         
-        <div className="flex items-center space-x-2 pt-2">
-          <input 
-            type="checkbox" 
-            id="isOvertimeEnabled" 
-            name="isOvertimeEnabled" 
-            defaultChecked 
-            value="true"
-            className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary" 
-          />
-          <label htmlFor="isOvertimeEnabled" className="text-sm font-medium text-gray-700">
-            Начислять переработки (сверх базовых часов локации)
-          </label>
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center space-x-2">
+            <input 
+              type="checkbox" 
+              id="isCashier" 
+              name="isCashier" 
+              value="true"
+              className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary cursor-pointer" 
+            />
+            <label htmlFor="isCashier" className="text-sm font-medium text-gray-700 cursor-pointer">
+              💰 <span className="font-semibold text-gray-900">Кассир</span> (начало рабочего дня в <span className="text-primary font-bold">10:45</span>, штраф при опоздании)
+            </label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <input 
+              type="checkbox" 
+              id="isOvertimeEnabled" 
+              name="isOvertimeEnabled" 
+              defaultChecked 
+              value="true"
+              className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary cursor-pointer" 
+            />
+            <label htmlFor="isOvertimeEnabled" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Начислять переработки (сверх базовых часов локации)
+            </label>
+          </div>
         </div>
         
         <div className="flex justify-end pt-4">

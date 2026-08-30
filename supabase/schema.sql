@@ -12,7 +12,7 @@ CREATE TABLE public.locations (
 );
 
 -- Таблица профилей сотрудников (Profiles)
--- Связана с auth.users
+-- Связана с auth.users (сотрудники с должностью 'Кассир' имеют начало смены в 10:45)
 CREATE TABLE public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL,

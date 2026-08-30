@@ -37,7 +37,14 @@ export default function EmployeeRow({ employee }: { employee: any }) {
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col">
         <div className="flex justify-between items-start mb-3">
           <div>
-            <h3 className="font-bold text-gray-900 leading-tight">{employee.full_name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-gray-900 leading-tight">{employee.full_name}</h3>
+              {employee.position?.toLowerCase().includes("кассир") && (
+                <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  💰 10:45
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-500 mt-0.5">{employee.position || "Должность не указана"}</p>
           </div>
           <span className={`px-2 py-1 text-[10px] uppercase tracking-wider font-bold rounded-full ${
@@ -154,32 +161,48 @@ export default function EmployeeRow({ employee }: { employee: any }) {
                   />
                 </div>
 
-                <div className="flex items-center pt-2">
-                  <input
-                    name="isOvertimeEnabled"
-                    type="checkbox"
-                    value="true"
-                    defaultChecked={employee.is_overtime_enabled !== false}
-                    id="isOvertimeCheck"
-                    className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
-                  />
-                  <label htmlFor="isOvertimeCheck" className="ml-2 text-sm text-gray-700">
-                    Начислять переработки
-                  </label>
-                </div>
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center">
+                    <input
+                      name="isCashier"
+                      type="checkbox"
+                      value="true"
+                      defaultChecked={employee.position?.toLowerCase().includes("кассир")}
+                      id="isCashierCheck"
+                      className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary cursor-pointer"
+                    />
+                    <label htmlFor="isCashierCheck" className="ml-2 text-sm font-medium text-gray-700 cursor-pointer">
+                      💰 <span className="font-semibold text-gray-900">Кассир</span> (начало в <span className="text-primary font-bold">10:45</span>, штраф при опоздании)
+                    </label>
+                  </div>
 
-                <div className="flex items-center">
-                  <input
-                    name="isActive"
-                    type="checkbox"
-                    value="true"
-                    defaultChecked={employee.is_active}
-                    id="isActiveCheck"
-                    className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
-                  />
-                  <label htmlFor="isActiveCheck" className="ml-2 text-sm text-gray-700">
-                    Активный сотрудник
-                  </label>
+                  <div className="flex items-center">
+                    <input
+                      name="isOvertimeEnabled"
+                      type="checkbox"
+                      value="true"
+                      defaultChecked={employee.is_overtime_enabled !== false}
+                      id="isOvertimeCheck"
+                      className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary cursor-pointer"
+                    />
+                    <label htmlFor="isOvertimeCheck" className="ml-2 text-sm text-gray-700 cursor-pointer">
+                      Начислять переработки
+                    </label>
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      name="isActive"
+                      type="checkbox"
+                      value="true"
+                      defaultChecked={employee.is_active}
+                      id="isActiveCheck"
+                      className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary cursor-pointer"
+                    />
+                    <label htmlFor="isActiveCheck" className="ml-2 text-sm text-gray-700 cursor-pointer">
+                      Активный сотрудник
+                    </label>
+                  </div>
                 </div>
 
                 <div className="pt-4 flex gap-3">

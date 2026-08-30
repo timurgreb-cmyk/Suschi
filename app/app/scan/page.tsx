@@ -20,6 +20,8 @@ export default function ScanPage() {
     isLate?: boolean;
     lateMinutes?: number;
     calculatedFine?: number;
+    planStart?: string;
+    isCashier?: boolean;
   } | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
 
@@ -29,9 +31,10 @@ export default function ScanPage() {
   const handleScan = async (data: any) => {
     if (data && data.text && status === "scanning") {
       setStatus("processing");
+      setCameraActive(false);
       
-      const clientTime = new Date().toISOString();
-      const result = await processQRScan(data.text, clientTime);
+      const clientTimeIso = new Date().toISOString();
+      const result = await processQRScan(data.text, clientTimeIso);
       
       if (result.success && result.data) {
         setStatus("success");
@@ -40,7 +43,9 @@ export default function ScanPage() {
           location: result.data.locationName,
           isLate: result.data.isLate,
           lateMinutes: result.data.lateMinutes,
-          calculatedFine: result.data.calculatedFine
+          calculatedFine: result.data.calculatedFine,
+          planStart: result.data.planStart,
+          isCashier: result.data.isCashier
         });
         setMessage(result.data.message || (result.data.type === "check_in" ? "Приход успешно отмечен!" : "Уход успешно отмечен!"));
       } else {
@@ -152,10 +157,16 @@ export default function ScanPage() {
               )}
               {resultData && resultData.isLate && resultData.calculatedFine && resultData.calculatedFine > 0 ? (
                 <div className="bg-red-50 border border-red-100 rounded-2xl py-4 px-4 w-full mb-8 text-left">
-                  <p className="text-xs text-red-500 font-black uppercase tracking-wider mb-1 flex items-center">
-                    ⚠️ Обнаружено опоздание
+                  <p className="text-xs text-red-500 font-black uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>⚠️ Обнаружено опоздание</span>
+                    {resultData.isCashier && (
+                      <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        💰 Кассир (10:45)
+                      </span>
+                    )}
                   </p>
                   <p className="text-sm text-gray-700 font-medium">
+                    План начала: <span className="font-bold text-gray-900">{resultData.planStart || (resultData.isCashier ? "10:45" : "11:00")}</span><br/>
                     Вы опоздали на <span className="font-bold text-red-600">{resultData.lateMinutes} мин</span>.<br/>
                     Начислен штраф: <span className="font-bold text-red-600">{resultData.calculatedFine} ₸</span> (ожидает решения администратора).
                   </p>
