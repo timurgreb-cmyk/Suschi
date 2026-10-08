@@ -27,9 +27,9 @@ export interface IikoAttendanceShift {
 export interface IikoWaiterTipRecord {
   date: string;
   waiterName: string;
-  increaseSum: number;
-  waiterBonus: number;
-  dishSum: number;
+  increaseSum: number; // 10% надбавка за обслуживание
+  waiterBonus: number; // 50% от суммы надбавки (к выплате официанту)
+  dishSum: number; // Сумма выручки
 }
 
 // In-memory token cache to protect iiko license slots
@@ -44,7 +44,7 @@ export function cleanServerBaseUrl(url: string): string {
 }
 
 export const IIKO_DEFAULT_DEPARTMENT_ID = process.env.IIKO_DEFAULT_DEPARTMENT_ID || "00000000-0000-0000-0000-000000000000";
-export const IIKO_DEFAULT_DEPARTMENT_NAME = process.env.IIKO_DEFAULT_DEPARTMENT_NAME || "Sushi Control";
+export const IIKO_DEFAULT_DEPARTMENT_NAME = process.env.IIKO_DEPARTMENT || "Sushi City";
 export const IIKO_DEFAULT_ATTENDANCE_TYPE_ID = "1410aeda-5f73-f9da-f415-fc0d9513d400"; // Р (Отработано)
 export const IIKO_DEFAULT_ATTENDANCE_CODE = "Р";
 
@@ -53,11 +53,11 @@ export const IIKO_DEFAULT_ATTENDANCE_CODE = "Р";
  * GET/POST https://host:port/resto/api/auth?login=[login]&pass=[sha1passwordhash]
  */
 export async function getIikoRestoToken(): Promise<string> {
-  const rawUrl = process.env.IIKO_SERVER_URL || "https://sushi-control.iiko.it/resto";
+  const rawUrl = process.env.IIKO_SERVER_URL || "https://sushi-siti-almaty.iiko.it/resto";
   const serverUrl = cleanServerBaseUrl(rawUrl);
-  const login = (process.env.IIKO_LOGIN || "admin").trim();
-  const pass = (process.env.IIKO_PASS || "").trim();
-  const apiKey = (process.env.IIKO_API_KEY || "").trim();
+  const login = (process.env.IIKO_LOGIN || "buh").trim();
+  const pass = (process.env.IIKO_PASS || "123").trim();
+  const apiKey = (process.env.IIKO_API_KEY || "8f8za9u25").trim();
 
   const now = Date.now();
   if (cachedRestoToken && cachedRestoToken.expiresAt > now + 60000) {
@@ -65,20 +65,11 @@ export async function getIikoRestoToken(): Promise<string> {
   }
 
   const passHash = sha1(pass);
-  const candidates: Array<{ label: string; val: string }> = [];
-
-  if (pass) {
-    candidates.push({ label: "SHA1(password)", val: passHash });
-    candidates.push({ label: "Plain password", val: pass });
-  }
-  if (apiKey) {
-    candidates.push({ label: "SHA1(apiKey)", val: sha1(apiKey) });
-    candidates.push({ label: "Plain apiKey", val: apiKey });
-  }
-
-  if (candidates.length === 0) {
-    throw new Error("Не заданы параметры авторизации iiko (IIKO_SERVER_URL, IIKO_LOGIN, IIKO_PASS или IIKO_API_KEY в .env.local)");
-  }
+  const candidates = [
+    { label: "SHA1(password)", val: passHash },
+    { label: "Plain password", val: pass },
+    { label: "SHA1(apiKey)", val: sha1(apiKey) },
+  ];
 
   let lastError = "";
 
@@ -160,7 +151,7 @@ function extractTagValue(xml: string, tag: string): string {
  * 2. Получение списка сотрудников из iiko
  */
 export async function getIikoRestoEmployees(): Promise<IikoEmployee[]> {
-  const serverUrl = cleanServerBaseUrl(process.env.IIKO_SERVER_URL || "https://sushi-control.iiko.it/resto");
+  const serverUrl = cleanServerBaseUrl(process.env.IIKO_SERVER_URL || "https://fettuccine-co.iiko.it/resto");
   const token = await getIikoRestoToken();
 
   const url = `${serverUrl}/api/employees?key=${encodeURIComponent(token)}`;
@@ -249,7 +240,7 @@ export async function createIikoRestoAttendance({
   comment?: string;
 }): Promise<{ success: boolean; id?: string; error?: string; raw?: string }> {
   try {
-    const serverUrl = cleanServerBaseUrl(process.env.IIKO_SERVER_URL || "https://sushi-control.iiko.it/resto");
+    const serverUrl = cleanServerBaseUrl(process.env.IIKO_SERVER_URL || "https://fettuccine-co.iiko.it/resto");
     const token = await getIikoRestoToken();
 
     const formattedFrom = formatIikoDate(dateFrom);
@@ -295,7 +286,7 @@ export async function createIikoRestoAttendance({
  * 4. Получение явок сотрудников из iiko
  */
 export async function getIikoRestoAttendance(dateFrom: string, dateTo?: string): Promise<IikoAttendanceShift[]> {
-  const serverUrl = cleanServerBaseUrl(process.env.IIKO_SERVER_URL || "https://sushi-control.iiko.it/resto");
+  const serverUrl = cleanServerBaseUrl(process.env.IIKO_SERVER_URL || "https://fettuccine-co.iiko.it/resto");
   const token = await getIikoRestoToken();
 
   const to = dateTo || dateFrom;
@@ -346,7 +337,7 @@ export async function getIikoRestoAttendance(dateFrom: string, dateTo?: string):
 }
 
 /**
- * 5. Получение процентов / бонусов через OLAP отчет iiko
+ * 5. Получение процентов официантов (50% от 10% надбавки IncreaseSum) через OLAP отчет iiko
  */
 export async function getIikoWaiterServiceTips({
   dateFrom,
@@ -359,8 +350,21 @@ export async function getIikoWaiterServiceTips({
   totalsByWaiter: Record<string, { increaseSum: number; waiterBonus: number; dishSum: number }>;
 }> {
   try {
-    const serverUrl = cleanServerBaseUrl(process.env.IIKO_SERVER_URL || "https://sushi-control.iiko.it/resto");
+    const serverUrl = cleanServerBaseUrl(process.env.IIKO_SERVER_URL || "https://fettuccine-co.iiko.it/resto");
     const token = await getIikoRestoToken();
+
+    // В OLAP iiko фильтр DateRange по полю OpenDate.Typed исключает дату `to` (to интерпретируется как T00:00:00).
+    // Чтобы включить весь день dateTo, прибавляем 1 день к границе запроса в iiko.
+    let queryDateTo = dateTo;
+    try {
+      const [y, m, d] = dateTo.split("-").map(Number);
+      if (y && m && d) {
+        const nextDay = new Date(Date.UTC(y, m - 1, d + 1));
+        queryDateTo = nextDay.toISOString().split("T")[0];
+      }
+    } catch {
+      queryDateTo = dateTo;
+    }
 
     const query = {
       reportType: "SALES",
@@ -371,7 +375,7 @@ export async function getIikoWaiterServiceTips({
           filterType: "DateRange",
           periodType: "CUSTOM",
           from: dateFrom,
-          to: dateTo,
+          to: queryDateTo,
         },
       },
     };
@@ -397,9 +401,13 @@ export async function getIikoWaiterServiceTips({
 
     for (const row of rows) {
       const date = row["OpenDate.Typed"] || "";
+      // Фильтруем даты, чтобы не захватить лишнее при расширении границы
+      if (date && (date < dateFrom || date > dateTo)) continue;
+
       const waiterName = row["WaiterName"] || "Неизвестно";
       const increaseSum = Math.round(Number(row["IncreaseSum"]) || 0);
       const dishSum = Math.round(Number(row["DishSumInt"]) || 0);
+      // Формула: 50% от суммы 10% надбавки iiko
       const waiterBonus = Math.round(increaseSum / 2);
 
       daily.push({
@@ -425,6 +433,9 @@ export async function getIikoWaiterServiceTips({
   }
 }
 
+/**
+ * Унифицированные методы
+ */
 export async function getIikoOrganizations(): Promise<any[]> {
   return [{ id: IIKO_DEFAULT_DEPARTMENT_ID, name: IIKO_DEFAULT_DEPARTMENT_NAME }];
 }
