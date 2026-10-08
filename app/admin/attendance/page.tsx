@@ -5,6 +5,7 @@ import DeleteRecordButton from "./DeleteRecordButton";
 import AddRecordModal from "./AddRecordModal";
 import LocalTime from "@/components/LocalTime";
 import ResetAttendanceButton from "./ResetAttendanceButton";
+import SendTelegramReportButton from "@/components/admin/SendTelegramReportButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -100,7 +101,8 @@ export default async function AttendancePage() {
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Журнал отметок</h1>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <SendTelegramReportButton />
           <ResetAttendanceButton />
           <AddRecordModal employees={employees || []} />
         </div>

@@ -1,31 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { format, parseISO } from "date-fns";
-import { ru } from "date-fns/locale";
+import { formatLocalTime } from "@/utils/date";
 
 interface LocalTimeProps {
   isoString: string;
   formatStr?: string;
 }
 
-export default function LocalTime({ isoString, formatStr = "dd MMM yyyy, HH:mm" }: LocalTimeProps) {
-  const [mounted, setMounted] = useState(false);
+export default function LocalTime({ isoString, formatStr = "HH:mm" }: LocalTimeProps) {
+  if (!isoString) return <span>—</span>;
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  let options: Intl.DateTimeFormatOptions = {
+    timeZone: "Asia/Almaty",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  };
 
-  if (!mounted) {
-    // Пока компонент не "ожил" на клиенте, показываем пустую строку или серверный вариант (заглушку)
-    // чтобы не было ошибки гидратации
-    return <span className="opacity-0">--:--</span>;
+  if (formatStr.includes("MMM") || formatStr.includes("yyyy") || formatStr.includes("dd")) {
+    options = {
+      timeZone: "Asia/Almaty",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    };
   }
 
-  try {
-    const date = parseISO(isoString);
-    return <span>{format(date, formatStr, { locale: ru })}</span>;
-  } catch (e) {
-    return <span>{isoString}</span>;
-  }
+  const timeStr = formatLocalTime(isoString, options);
+  return <span>{timeStr}</span>;
 }

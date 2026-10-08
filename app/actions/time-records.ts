@@ -72,12 +72,14 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
     // Получаем профиль для проверок
     const { data: employeeProfile } = await supabaseAdmin
       .from("profiles")
-      .select("full_name, position, can_upload_production")
+      .select("full_name, position, shift_rate, can_upload_production")
       .eq("id", user.id)
       .single();
 
     // 4. Определение типа (если последняя была приход - делаем уход, иначе приход)
     let newRecordType = "check_in";
+    let workedDurationStr: string | undefined;
+
     if (lastRecord && lastRecord.record_type === "check_in") {
       const lastInTime = new Date(lastRecord.recorded_at).getTime();
       const diffHours = (now.getTime() - lastInTime) / (1000 * 60 * 60);
@@ -86,6 +88,10 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
       // Если больше или равно — считаем, что сотрудник забыл отметиться вчера, и открываем новую смену.
       if (diffHours < 16) {
         newRecordType = "check_out";
+        const diffMinsTotal = Math.max(0, Math.round((now.getTime() - lastInTime) / (1000 * 60)));
+        const h = Math.floor(diffMinsTotal / 60);
+        const m = diffMinsTotal % 60;
+        workedDurationStr = `${h} ч. ${m} мин.`;
       }
     }
 
@@ -134,6 +140,27 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
 
     if (insertError) {
       return { success: false, error: `Ошибка записи: ${insertError.message}` };
+    }
+
+    // 7. Отправка уведомления в Telegram (не блокирует результат в случае сбоя бота)
+    try {
+      const { sendCheckInOutTelegramNotification } = await import("@/utils/telegram");
+      sendCheckInOutTelegramNotification({
+        type: newRecordType as "check_in" | "check_out",
+        employeeName: employeeProfile?.full_name || "Сотрудник",
+        position: employeeProfile?.position || null,
+        locationName: location.name,
+        timeIso: now.toISOString(),
+        isLate,
+        lateMinutes,
+        calculatedFine,
+        planStart: planStartTime,
+        isCashier,
+        workedDurationStr,
+        shiftRate: employeeProfile?.shift_rate ? Number(employeeProfile.shift_rate) : undefined,
+      }).catch(err => console.error("Telegram async send error:", err));
+    } catch (tgErr) {
+      console.error("Telegram trigger error:", tgErr);
     }
 
     const { revalidatePath } = await import("next/cache");

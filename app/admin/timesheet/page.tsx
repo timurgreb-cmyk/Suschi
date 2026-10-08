@@ -4,6 +4,7 @@ import { ru } from "date-fns/locale";
 import ExportCsvButton from "./ExportCsvButton";
 import TimesheetRow from "@/components/admin/TimesheetRow";
 import ResetOvertimesButton from "./ResetOvertimesButton";
+import SendTelegramReportButton from "@/components/admin/SendTelegramReportButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -364,6 +365,7 @@ export default async function TimesheetPage({
           <div suppressHydrationWarning className="text-sm text-gray-500 bg-white px-4 py-2.5 rounded-xl shadow-sm border border-gray-200">
             Период: {format(startDate, "LLLL yyyy", { locale: ru })}
           </div>
+          <SendTelegramReportButton />
           <ResetOvertimesButton monthStr={periodStr} />
           <ExportCsvButton data={timesheet} month={periodStr} />
         </div>
