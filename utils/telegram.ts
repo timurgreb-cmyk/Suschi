@@ -6,8 +6,8 @@ import { ru } from "date-fns/locale";
  * Отправляет сообщение в Telegram во все настроенные чаты (поддерживает один или несколько через запятую)
  */
 export async function sendTelegramMessage(text: string): Promise<{ success: boolean; error?: string }> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatIdsStr = process.env.TELEGRAM_CHAT_ID;
+  const token = process.env.TELEGRAM_BOT_TOKEN || "8898608464:AAHxqf4NVWceaYDlPZlrwZVP9A6CBrEtBPk";
+  const chatIdsStr = process.env.TELEGRAM_CHAT_ID || "1290448858,1062919938";
 
   if (!token || !chatIdsStr) {
     console.warn("Telegram bot token or chat ID is missing in environment variables.");

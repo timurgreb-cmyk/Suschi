@@ -145,7 +145,7 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
     // 7. Отправка уведомления в Telegram (не блокирует результат в случае сбоя бота)
     try {
       const { sendCheckInOutTelegramNotification } = await import("@/utils/telegram");
-      sendCheckInOutTelegramNotification({
+      await sendCheckInOutTelegramNotification({
         type: newRecordType as "check_in" | "check_out",
         employeeName: employeeProfile?.full_name || "Сотрудник",
         position: employeeProfile?.position || null,
@@ -158,7 +158,7 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
         isCashier,
         workedDurationStr,
         shiftRate: employeeProfile?.shift_rate ? Number(employeeProfile.shift_rate) : undefined,
-      }).catch(err => console.error("Telegram async send error:", err));
+      });
     } catch (tgErr) {
       console.error("Telegram trigger error:", tgErr);
     }
