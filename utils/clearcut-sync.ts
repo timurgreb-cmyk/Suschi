@@ -24,7 +24,7 @@ export async function syncPayrollToClearcut(params: {
     }
 
     const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "https://wctjpunmiqbpuimplzis.supabase.co",
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 

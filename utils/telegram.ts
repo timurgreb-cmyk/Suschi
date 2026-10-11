@@ -152,7 +152,7 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
 }> {
   try {
     const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "https://wctjpunmiqbpuimplzis.supabase.co",
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
@@ -337,11 +337,13 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
         const inMins = timeToMinutes(inTimeStr);
         const planMins = timeToMinutes(planStart);
 
-        if (inMins > planMins) {
+        // Если приход в 13:00 или позже (например в 13:00, 13:30 или вечером), это вторая смена / полдня из-за учебы -> штраф НЕ начисляется!
+        // Если сотрудник/кассир пришел до 13:00 (например в 11:46, 12:20) -> штраф начисляется относительно планового времени!
+        if (inMins < 13 * 60 && inMins > planMins) {
           empLateMinutes = inMins - planMins;
           if (empLateMinutes > 10) {
             const intervals = Math.ceil((empLateMinutes - 10) / 5);
-            calculatedFine = intervals * (loc.late_fine_amount || 0);
+            calculatedFine = intervals * (Number(loc.late_fine_amount) || 1000);
           }
         }
       }
@@ -349,8 +351,16 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
       if (calculatedFine > 0) {
         const approved = fineApprovals?.find(a => a.employee_id === emp.id);
         if (approved) {
-          fineAmount = approved.status === "approved" ? Number(approved.approved_fine) : 0;
-          fineStatus = approved.status === "approved" ? "подтвержден" : approved.status === "rejected" ? "отменен" : "на согласовании";
+          if (approved.status === "approved") {
+            fineAmount = Number(approved.approved_fine ?? approved.calculated_fine ?? calculatedFine);
+            fineStatus = "подтвержден";
+          } else if (approved.status === "rejected") {
+            fineAmount = 0;
+            fineStatus = "отменен";
+          } else {
+            fineAmount = Number(approved.approved_fine ?? approved.calculated_fine ?? calculatedFine);
+            fineStatus = "на согласовании";
+          }
         } else {
           fineAmount = calculatedFine;
           fineStatus = "авто";
@@ -361,12 +371,29 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
       const empDeductions = deductions?.filter(d => d.employee_id === emp.id) || [];
       const totalEmpDeductions = empDeductions.reduce((sum, d) => sum + Number(d.amount || 0), 0);
 
+      // Определение базовой ставки (с автоподстановкой по должности из системы, если в профиле 0)
+      let shiftRate = Number(emp.shift_rate) || 0;
+      if (shiftRate <= 0) {
+        const posLower = (emp.position || "").toLowerCase();
+        if (posLower.includes("сушист")) shiftRate = 12000;
+        else if (posLower.includes("пиццер")) shiftRate = 15000;
+        else if (posLower.includes("повар") && !posLower.includes("помощник")) shiftRate = 13000;
+        else if (posLower.includes("помощник") || posLower.includes("горячка")) shiftRate = 10000;
+        else if (posLower.includes("кассир") || posLower.includes("оператор")) shiftRate = 10000;
+        else shiftRate = 10000;
+      }
+
+      // Для смен полдня (выход после 13:00 или короткая смена) начисляем 50% ставки
+      const inMinsVal = firstIn ? timeToMinutes(getLocalTimeStr(firstIn)) : 0;
+      const isHalfDayShift = inMinsVal >= 13 * 60;
+      const effectiveBasePay = isHalfDayShift ? Math.round(shiftRate * 0.5) : shiftRate;
+
       // Переработки
       const baseHours = loc ? (loc.base_hours || 8) : 8;
       const actualHours = workedMinutes / 60;
       let overtimeHours = 0;
 
-      if (emp.is_overtime_enabled !== false && actualHours > baseHours + 1) {
+      if (emp.is_overtime_enabled !== false && !isHalfDayShift && actualHours > baseHours + 1) {
         overtimeHours = Math.floor(actualHours - (baseHours + 1));
       }
 
@@ -375,10 +402,9 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
         overtimeHours = overApproval.status === "approved" ? Number(overApproval.approved_hours) : 0;
       }
 
-      const shiftRate = Number(emp.shift_rate) || 0;
       const hourlyRate = shiftRate / 8;
       const overtimePay = Math.round(overtimeHours * hourlyRate);
-      const finalPay = Math.max(0, Math.round(shiftRate + overtimePay - fineAmount - totalEmpDeductions));
+      const finalPay = Math.max(0, Math.round(effectiveBasePay + overtimePay - fineAmount - totalEmpDeductions));
 
       employeeSummaries.push({
         employeeId: emp.id,
@@ -441,7 +467,9 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
         reportText += `\n`;
 
         if (emp.fineAmount > 0) {
-          reportText += `   🔴 Штраф (опоздание на ${emp.lateMinutes} мин): <code>-${emp.fineAmount.toLocaleString("ru-RU")} ₸</code>\n`;
+          reportText += `   🔴 Штраф (опоздание на ${emp.lateMinutes} мин): <code>-${emp.fineAmount.toLocaleString("ru-RU")} ₸</code> (${emp.fineStatus})\n`;
+        } else if (emp.fineStatus === "отменен" && emp.lateMinutes > 0) {
+          reportText += `   ⚪ Штраф за опоздание (${emp.lateMinutes} мин): <code>0 ₸ (отменен)</code>\n`;
         }
         if (emp.deductionAmount > 0) {
           reportText += `   🔻 Удержания (брак/инвентарь): <code>-${emp.deductionAmount.toLocaleString("ru-RU")} ₸</code>\n`;
@@ -454,13 +482,15 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
       reportText += `━━━━━━━━━━━━━━━━━━━━━\n`;
       reportText += `⚠️ <b>ШТРАФЫ И УДЕРЖАНИЯ ЗА ДЕНЬ:</b>\n`;
 
-      const finedEmployees = employeeSummaries.filter(e => e.fineAmount > 0 || e.deductionAmount > 0);
+      const finedEmployees = employeeSummaries.filter(e => e.fineAmount > 0 || e.deductionAmount > 0 || (e.fineStatus === "отменен" && e.lateMinutes > 0));
       if (finedEmployees.length === 0) {
         reportText += `✨ <i>Опозданий и штрафов нет — все сотрудники пришли вовремя!</i>\n\n`;
       } else {
         finedEmployees.forEach(e => {
           if (e.fineAmount > 0) {
             reportText += `• <b>${e.employeeName}</b>: Опоздание на ${e.lateMinutes} мин. ➔ <b>-${e.fineAmount.toLocaleString("ru-RU")} ₸</b> (${e.fineStatus})\n`;
+          } else if (e.fineStatus === "отменен" && e.lateMinutes > 0) {
+            reportText += `• <b>${e.employeeName}</b>: Опоздание на ${e.lateMinutes} мин. ➔ <b>0 ₸</b> (штраф отменен)\n`;
           }
           if (e.deductionAmount > 0) {
             reportText += `• <b>${e.employeeName}</b>: Удержание (списание/недостача) ➔ <b>-${e.deductionAmount.toLocaleString("ru-RU")} ₸</b>\n`;

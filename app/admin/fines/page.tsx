@@ -144,14 +144,15 @@ export default async function FinesPage({
       const checkInMins = timeToMinutes(checkInTimeStr);
       const planStartMins = timeToMinutes(employeePlanStartTime);
 
-      if (checkInMins > planStartMins) {
+      // Если приход до 13:00 и позже планового времени -> штраф (в 13:00 и позже — вторая смена/студенты без штрафа)
+      if (checkInMins < 13 * 60 && checkInMins > planStartMins) {
         const lateMinutes = checkInMins - planStartMins;
         
         // Штраф считается только если опоздание больше 10 минут
         if (lateMinutes > 10) {
           const extraMinutes = lateMinutes - 10;
           const intervals = Math.ceil(extraMinutes / 5);
-          const calculatedFine = intervals * (locInfo.late_fine_amount || 0);
+          const calculatedFine = intervals * (Number(locInfo.late_fine_amount) || 1000);
 
           if (calculatedFine > 0) {
             // Проверяем, есть ли решение админа

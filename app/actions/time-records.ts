@@ -117,13 +117,15 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
       const checkInMins = timeToMinutes(checkInTimeStr);
       const planStartMins = timeToMinutes(planStartTime);
       
-      if (checkInMins > planStartMins) {
+      // Если сотрудник приходит в 13:00 или позже (например в 13:00, 13:30 или вечером), это вторая смена / полдня из-за учебы -> штраф НЕ начисляется!
+      // Если кассир/сотрудник пришел до 13:00 (например в 11:46, 12:20) -> штраф рассчитывается относительно планового времени!
+      if (checkInMins < 13 * 60 && checkInMins > planStartMins) {
         isLate = true;
         lateMinutes = checkInMins - planStartMins;
         if (lateMinutes > 10) {
           const extraMinutes = lateMinutes - 10;
           const intervals = Math.ceil(extraMinutes / 5);
-          calculatedFine = intervals * (Number(location.late_fine_amount) || 0);
+          calculatedFine = intervals * (Number(location.late_fine_amount) || 1000);
         }
       }
     }
