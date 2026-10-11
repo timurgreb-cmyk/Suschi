@@ -6,18 +6,19 @@ import { ru } from "date-fns/locale";
  * Отправляет сообщение в Telegram во все настроенные чаты (поддерживает один или несколько через запятую)
  */
 export async function sendTelegramMessage(text: string): Promise<{ success: boolean; error?: string }> {
-  const token = process.env.TELEGRAM_BOT_TOKEN || "8898608464:AAHxqf4NVWceaYDlPZlrwZVP9A6CBrEtBPk";
-  const chatIdsStr = process.env.TELEGRAM_CHAT_ID || "1290448858,1062919938";
+  // Гарантированный рабочий токен бота @sushicontroll_bot
+  const defaultToken = "8898608464:AAHxqf4NVWceaYDlPZlrwZVP9A6CBrEtBPk";
+  const token = (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_TOKEN.includes(":"))
+    ? process.env.TELEGRAM_BOT_TOKEN
+    : defaultToken;
 
-  if (!token || !chatIdsStr) {
-    console.warn("Telegram bot token or chat ID is missing in environment variables.");
-    return { success: false, error: "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не настроены в .env" };
-  }
-
-  const chatIds = chatIdsStr
+  // Обязательные чаты: Тимур (1290448858) и Айгерим (1062919938) всегда получают каждое уведомление
+  const REQUIRED_CHATS = ["1290448858", "1062919938"];
+  const envChats = (process.env.TELEGRAM_CHAT_ID || "")
     .split(",")
     .map(id => id.trim())
     .filter(Boolean);
+  const chatIds = Array.from(new Set([...REQUIRED_CHATS, ...envChats]));
 
   if (chatIds.length === 0) {
     return { success: false, error: "Нет валидных TELEGRAM_CHAT_ID" };
@@ -89,10 +90,13 @@ export async function sendCheckInOutTelegramNotification(params: {
       shiftRate,
     } = params;
 
-    // Время в поясе Алматы (UTC+5)
+    // Точное время в поясе Алматы (UTC+5) с секундами
     const date = new Date(timeIso);
     const localDate = new Date(date.getTime() + 5 * 60 * 60 * 1000);
-    const timeStr = `${String(localDate.getUTCHours()).padStart(2, "0")}:${String(localDate.getUTCMinutes()).padStart(2, "0")}`;
+    const hh = String(localDate.getUTCHours()).padStart(2, "0");
+    const mm = String(localDate.getUTCMinutes()).padStart(2, "0");
+    const ss = String(localDate.getUTCSeconds()).padStart(2, "0");
+    const timeStr = `${hh}:${mm}:${ss}`;
     const dateStr = `${String(localDate.getUTCDate()).padStart(2, "0")}.${String(localDate.getUTCMonth() + 1).padStart(2, "0")}.${localDate.getUTCFullYear()}`;
 
     const posBadge = position ? `(${position})` : "";
@@ -103,7 +107,7 @@ export async function sendCheckInOutTelegramNotification(params: {
       message += `🟢 <b>ПРИХОД НА СМЕНУ</b>\n\n`;
       message += `👤 <b>Сотрудник:</b> ${employeeName} ${posBadge}\n`;
       message += `📍 <b>Точка:</b> ${locationName}\n`;
-      message += `⏰ <b>Время отметки:</b> ${timeStr} (${dateStr})\n`;
+      message += `⏰ <b>Точное время:</b> ${timeStr} (${dateStr})\n`;
       if (planStart) {
         message += `📋 <b>График:</b> с ${planStart}${isCashier ? " (Кассир)" : ""}\n`;
       }
@@ -122,7 +126,7 @@ export async function sendCheckInOutTelegramNotification(params: {
       message += `🔴 <b>УХОД СО СМЕНЫ</b>\n\n`;
       message += `👤 <b>Сотрудник:</b> ${employeeName} ${posBadge}\n`;
       message += `📍 <b>Точка:</b> ${locationName}\n`;
-      message += `⏰ <b>Время ухода:</b> ${timeStr} (${dateStr})\n`;
+      message += `⏰ <b>Точное время ухода:</b> ${timeStr} (${dateStr})\n`;
 
       if (workedDurationStr) {
         message += `⏱ <b>Отработано:</b> ${workedDurationStr}\n`;

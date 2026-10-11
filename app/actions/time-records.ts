@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { sendCheckInOutTelegramNotification } from "@/utils/telegram";
 
 export async function processQRScan(locationId: string, clientTimeIso?: string) {
   try {
@@ -144,10 +145,9 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
       return { success: false, error: `Ошибка записи: ${insertError.message}` };
     }
 
-    // 7. Отправка уведомления в Telegram (не блокирует результат в случае сбоя бота)
+    // 7. Отправка уведомления в Telegram (отдельно по каждому сотруднику в момент отметки)
     try {
-      const { sendCheckInOutTelegramNotification } = await import("@/utils/telegram");
-      await sendCheckInOutTelegramNotification({
+      const tgRes = await sendCheckInOutTelegramNotification({
         type: newRecordType as "check_in" | "check_out",
         employeeName: employeeProfile?.full_name || "Сотрудник",
         position: employeeProfile?.position || null,
@@ -161,8 +161,11 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
         workedDurationStr,
         shiftRate: employeeProfile?.shift_rate ? Number(employeeProfile.shift_rate) : undefined,
       });
+      if (!tgRes?.success) {
+        console.error("Telegram notification error:", tgRes?.error);
+      }
     } catch (tgErr) {
-      console.error("Telegram trigger error:", tgErr);
+      console.error("Telegram trigger exception:", tgErr);
     }
 
     const { revalidatePath } = await import("next/cache");
