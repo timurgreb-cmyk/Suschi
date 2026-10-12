@@ -3,32 +3,30 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
 /**
- * Отправляет сообщение в Telegram во все настроенные чаты (поддерживает один или несколько через запятую)
+ * Отправляет сообщение в Telegram-бот Sushi Control (@sushicontroll_bot)
+ * Получатели: Тимур (1290448858) и Айгерим (1062919938)
  */
 export async function sendTelegramMessage(text: string): Promise<{ success: boolean; error?: string }> {
-  // Гарантированный рабочий токен бота @sushicontroll_bot
-  const defaultToken = "8898608464:AAHxqf4NVWceaYDlPZlrwZVP9A6CBrEtBPk";
-  const token = (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_TOKEN.includes(":"))
-    ? process.env.TELEGRAM_BOT_TOKEN
-    : defaultToken;
+  // Токен бота Sushi Control: @sushicontroll_bot
+  const BOT_TOKEN = "8898608464:AAHxqf4NVWceaYDlPZlrwZVP9A6CBrEtBPk";
 
-  // Обязательные чаты: Тимур (1290448858) и Айгерим (1062919938) всегда получают каждое уведомление
+  // Обязательные чаты Sushi City: Тимур и Айгерим
   const REQUIRED_CHATS = ["1290448858", "1062919938"];
   const envChats = (process.env.TELEGRAM_CHAT_ID || "")
-    .split(",")
+    .split(/[,;\s]+/)
     .map(id => id.trim())
-    .filter(Boolean);
+    .filter(id => id && id !== "570753683"); // Исключаем чаты других проектов
   const chatIds = Array.from(new Set([...REQUIRED_CHATS, ...envChats]));
 
-  if (chatIds.length === 0) {
-    return { success: false, error: "Нет валидных TELEGRAM_CHAT_ID" };
-  }
-
+  let successCount = 0;
   const errors: string[] = [];
 
   for (const chatId of chatIds) {
     try {
-      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -37,24 +35,28 @@ export async function sendTelegramMessage(text: string): Promise<{ success: bool
           parse_mode: "HTML",
           disable_web_page_preview: true,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
-      if (!data.ok) {
-        console.error(`Telegram error for chat ${chatId}:`, data);
-        errors.push(`Чат ${chatId}: ${data.description || "Ошибка отправки"}`);
+      if (data.ok) {
+        successCount++;
+      } else {
+        console.warn(`Telegram error for chat ${chatId}:`, data.description);
+        errors.push(`${chatId}: ${data.description}`);
       }
     } catch (err: any) {
-      console.error(`Telegram fetch error for chat ${chatId}:`, err);
-      errors.push(`Чат ${chatId}: ${err.message || "Ошибка сети"}`);
+      console.warn(`Telegram network error for chat ${chatId}:`, err.message);
+      errors.push(`${chatId}: ${err.message}`);
     }
   }
 
-  if (errors.length > 0 && errors.length === chatIds.length) {
-    return { success: false, error: errors.join("; ") };
+  if (successCount > 0) {
+    return { success: true };
   }
 
-  return { success: true };
+  return { success: false, error: errors.join("; ") || "Не удалось отправить сообщение" };
 }
 
 /**

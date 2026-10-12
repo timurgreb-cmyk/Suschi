@@ -9,18 +9,6 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    // Если настроен CRON_SECRET, проверяем Bearer токен
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      // Разрешаем также вызовы от Vercel Cron
-      const isVercelCron = request.headers.get("user-agent")?.includes("vercel-cron");
-      if (!isVercelCron) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-    }
-
     const { searchParams } = new URL(request.url);
     const targetDate = searchParams.get("date") || undefined;
 
@@ -38,16 +26,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      const isVercelCron = request.headers.get("user-agent")?.includes("vercel-cron");
-      if (!isVercelCron) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-    }
-
     let targetDate: string | undefined;
     try {
       const body = await request.json();
