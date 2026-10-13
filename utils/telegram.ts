@@ -164,12 +164,20 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
 
     // Определяем дату в поясе Алматы (UTC+5)
     let dateStr = targetDateStr;
+    const now = new Date();
+    const localNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+
     if (!dateStr) {
-      const now = new Date();
-      const localNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-      const yyyy = localNow.getUTCFullYear();
-      const mm = String(localNow.getUTCMonth() + 1).padStart(2, "0");
-      const dd = String(localNow.getUTCDate()).padStart(2, "0");
+      // Если отчет запускается ночью / под утро (с 00:00 до 06:00 по Алматы),
+      // это закрытие вечерней смены ВЧЕРАШНЕГО дня (даже если крон сработал с задержкой в 00:09 или 00:30).
+      const reportDate = new Date(localNow.getTime());
+      if (reportDate.getUTCHours() < 6) {
+        reportDate.setUTCDate(reportDate.getUTCDate() - 1);
+      }
+
+      const yyyy = reportDate.getUTCFullYear();
+      const mm = String(reportDate.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(reportDate.getUTCDate()).padStart(2, "0");
       dateStr = `${yyyy}-${mm}-${dd}`;
     }
 
@@ -434,10 +442,11 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
     });
 
     // Формируем текст отчета в Telegram
+    const generatedTimeStr = `${String(localNow.getUTCHours()).padStart(2, "0")}:${String(localNow.getUTCMinutes()).padStart(2, "0")}`;
     let reportText = `📊 <b>СУТОЧНЫЙ ОТЧЕТ ПО СМЕНАМ И ОКЛАДАМ</b>\n`;
     reportText += `📅 <b>Дата:</b> ${formattedDateHuman}\n`;
     reportText += `🏢 <b>Заведение:</b> Sushi City (Suschi Control)\n`;
-    reportText += `⏰ <b>Время формирования:</b> 23:30 (Алматы)\n`;
+    reportText += `⏰ <b>Время формирования:</b> ${generatedTimeStr} (Алматы)\n`;
     reportText += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     if (employeeSummaries.length === 0) {
