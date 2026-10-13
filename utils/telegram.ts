@@ -107,7 +107,7 @@ export async function sendCheckInOutTelegramNotification(params: {
 
     if (type === "check_in") {
       message += `🟢 <b>ПРИХОД НА СМЕНУ</b>\n\n`;
-      message += `👤 <b>Сотрудник:</b> ${employeeName} ${posBadge}\n`;
+      message += `👤 <b>${employeeName}</b> ${posBadge}\n`;
       message += `📍 <b>Точка:</b> ${locationName}\n`;
       message += `⏰ <b>Точное время:</b> ${timeStr} (${dateStr})\n`;
       if (planStart) {
@@ -126,7 +126,7 @@ export async function sendCheckInOutTelegramNotification(params: {
       }
     } else {
       message += `🔴 <b>УХОД СО СМЕНЫ</b>\n\n`;
-      message += `👤 <b>Сотрудник:</b> ${employeeName} ${posBadge}\n`;
+      message += `👤 <b>${employeeName}</b> ${posBadge}\n`;
       message += `📍 <b>Точка:</b> ${locationName}\n`;
       message += `⏰ <b>Точное время ухода:</b> ${timeStr} (${dateStr})\n`;
 
