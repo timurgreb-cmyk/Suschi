@@ -73,7 +73,7 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
     // Получаем профиль для проверок
     const { data: employeeProfile } = await supabaseAdmin
       .from("profiles")
-      .select("full_name, position, shift_rate, can_upload_production")
+      .select("full_name, position, shift_rate")
       .eq("id", user.id)
       .single();
 
