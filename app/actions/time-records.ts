@@ -123,10 +123,9 @@ export async function processQRScan(locationId: string, clientTimeIso?: string) 
       if (checkInMins < 13 * 60 && checkInMins > planStartMins) {
         isLate = true;
         lateMinutes = checkInMins - planStartMins;
-        if (lateMinutes > 10) {
-          const extraMinutes = lateMinutes - 10;
-          const intervals = Math.ceil(extraMinutes / 5);
-          calculatedFine = intervals * (Number(location.late_fine_amount) || 1000);
+        if (lateMinutes > 0) {
+          const intervals = Math.ceil(lateMinutes / 5);
+          calculatedFine = intervals * (Number(location.late_fine_amount) || 500);
         }
       }
     }

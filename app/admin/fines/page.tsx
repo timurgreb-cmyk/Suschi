@@ -148,11 +148,10 @@ export default async function FinesPage({
       if (checkInMins < 13 * 60 && checkInMins > planStartMins) {
         const lateMinutes = checkInMins - planStartMins;
         
-        // Штраф считается только если опоздание больше 10 минут
-        if (lateMinutes > 10) {
-          const extraMinutes = lateMinutes - 10;
-          const intervals = Math.ceil(extraMinutes / 5);
-          const calculatedFine = intervals * (Number(locInfo.late_fine_amount) || 1000);
+        // Приход после планового времени считается штрафом сразу (без 10-минутного льготного периода)
+        if (lateMinutes > 0) {
+          const intervals = Math.ceil(lateMinutes / 5);
+          const calculatedFine = intervals * (Number(locInfo.late_fine_amount) || 500);
 
           if (calculatedFine > 0) {
             // Проверяем, есть ли решение админа

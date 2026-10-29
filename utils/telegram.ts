@@ -115,11 +115,9 @@ export async function sendCheckInOutTelegramNotification(params: {
       }
 
       if (isLate && lateMinutes && lateMinutes > 0) {
+        message += `\n🔴 <b>ОПОЗДАНИЕ НА ${lateMinutes} МИН.!</b>\n`;
         if (calculatedFine && calculatedFine > 0) {
-          message += `\n🔴 <b>ОПОЗДАНИЕ НА ${lateMinutes} МИН.!</b>\n`;
           message += `⚠️ <b>Штраф за опоздание: <code>-${calculatedFine.toLocaleString("ru-RU")} ₸</code></b>\n`;
-        } else {
-          message += `\n🟡 <b>Опоздание на ${lateMinutes} мин.</b> (льготный интервал до 10 мин без штрафа)\n`;
         }
       } else {
         message += `✨ <b>Статус:</b> 🟢 Вовремя\n`;
@@ -355,9 +353,9 @@ export async function generateAndSendDailyReport(targetDateStr?: string): Promis
         // Если сотрудник/кассир пришел до 13:00 (например в 11:46, 12:20) -> штраф начисляется относительно планового времени!
         if (inMins < 13 * 60 && inMins > planMins) {
           empLateMinutes = inMins - planMins;
-          if (empLateMinutes > 10) {
-            const intervals = Math.ceil((empLateMinutes - 10) / 5);
-            calculatedFine = intervals * (Number(loc.late_fine_amount) || 1000);
+          if (empLateMinutes > 0) {
+            const intervals = Math.ceil(empLateMinutes / 5);
+            calculatedFine = intervals * (Number(loc.late_fine_amount) || 500);
           }
         }
       }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 // Используем динамический импорт для QrReader, так как он не поддерживает SSR
 import dynamic from "next/dynamic";
 import { processQRScan } from "@/app/actions/time-records";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 
 // @ts-ignore
 const QrReader = dynamic(() => import("react-qr-scanner"), { ssr: false });
@@ -145,38 +145,53 @@ export default function ScanPage() {
         {status === "success" && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md z-20 flex flex-col items-center justify-center p-6 text-center">
             <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-2xl flex flex-col items-center">
-              <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-green-500/30">
-                <CheckCircle2 className="w-10 h-10 text-white" />
-              </div>
-              <h2 className="text-2xl font-black text-gray-900 mb-2">{message}</h2>
-               {resultData && (
-                <div className="bg-gray-50 border border-gray-100 rounded-xl py-3 px-4 w-full mb-4">
-                  <p className="text-sm text-gray-500 font-medium mb-1">Локация</p>
-                  <p className="text-gray-900 font-bold">{resultData.location}</p>
+              {resultData?.isLate && resultData?.calculatedFine && resultData?.calculatedFine > 0 ? (
+                <div className="w-20 h-20 bg-amber-500 rounded-full flex items-center justify-center mb-5 shadow-lg shadow-amber-500/30">
+                  <AlertTriangle className="w-10 h-10 text-white" />
+                </div>
+              ) : (
+                <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mb-5 shadow-lg shadow-green-500/30">
+                  <CheckCircle2 className="w-10 h-10 text-white" />
                 </div>
               )}
+
+              <h2 className="text-2xl font-black text-gray-900 mb-1">{message}</h2>
+
+              {resultData && (
+                <div className="bg-gray-50 border border-gray-100 rounded-xl py-2 px-4 w-full mb-4">
+                  <p className="text-xs text-gray-500 font-medium">Локация</p>
+                  <p className="text-gray-900 font-bold text-sm">{resultData.location}</p>
+                </div>
+              )}
+
               {resultData && resultData.isLate && resultData.calculatedFine && resultData.calculatedFine > 0 ? (
-                <div className="bg-red-50 border border-red-100 rounded-2xl py-4 px-4 w-full mb-8 text-left">
-                  <p className="text-xs text-red-500 font-black uppercase tracking-wider mb-1 flex items-center justify-between">
-                    <span>⚠️ Обнаружено опоздание</span>
+                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 w-full mb-6 text-center">
+                  <div className="text-red-700 font-extrabold text-xs uppercase tracking-wider mb-1 flex items-center justify-center gap-1.5">
+                    <span>⚠️ Опоздание на {resultData.lateMinutes} мин</span>
                     {resultData.isCashier && (
                       <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        💰 Кассир (10:45)
+                        Кассир (10:45)
                       </span>
                     )}
-                  </p>
-                  <p className="text-sm text-gray-700 font-medium">
-                    План начала: <span className="font-bold text-gray-900">{resultData.planStart || (resultData.isCashier ? "10:45" : "11:00")}</span><br/>
-                    Вы опоздали на <span className="font-bold text-red-600">{resultData.lateMinutes} мин</span>.<br/>
-                    Начислен штраф: <span className="font-bold text-red-600">{resultData.calculatedFine} ₸</span> (ожидает решения администратора).
+                  </div>
+                  <div className="text-3xl font-black text-red-600 my-1">
+                    -{resultData.calculatedFine.toLocaleString("ru-RU")} ₸
+                  </div>
+                  <p className="text-xs text-gray-600 font-medium mt-1">
+                    Штраф за опоздание (план: {resultData.planStart || (resultData.isCashier ? "10:45" : "11:00")})
                   </p>
                 </div>
-              ) : null}
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-xl py-2 px-4 w-full mb-6">
+                  <p className="text-xs text-green-700 font-bold">✨ Отметка вовремя (без штрафов)</p>
+                </div>
+              )}
+
               <button 
                 onClick={() => setStatus("scanning")}
-                className="w-full bg-green-500 text-white px-8 py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-all"
+                className="w-full bg-primary hover:bg-primary/90 text-white px-8 py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-all"
               >
-                Готово
+                Понятно
               </button>
             </div>
           </div>
